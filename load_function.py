@@ -13,7 +13,7 @@ def set_load_function(model):
                                           microphysics_scheme='morrison',processes='mass',
                                           signed=True,
                                           quantity='mixing ratio',constraint=None,
-                                          debug_nproc=3)
+                                          debug_nproc=None)
                 out=processes
             elif variable_in is 'processes_lumped':
                 processes=calculate_wrf_mp_path(filename,                                                    
@@ -50,7 +50,7 @@ def set_load_function(model):
                                                  microphysics_scheme='RAMS',processes='mass',
                                                  signed=True,
                                                  quantity='mixing ratio',constraint=None,
-                                                 debug_nproc=3)
+                                                 debug_nproc=None)
                 out=processes
 
             elif variable_in is 'processes_lumped':

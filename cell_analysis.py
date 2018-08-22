@@ -2,17 +2,17 @@ import logging
 
 
     
-def extract_cell_cubes_subset(cubelist_in,mask,track,particle,
+def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
                               z_coord='model_level_number', height_levels=None):
     
     from iris.analysis import SUM
     from iris import Constraint
     from iris.cube import CubeList
     import numpy as np
-    from cloudtrack import mask_particle,mask_particle_surface,get_bounding_box
+    from cloudtrack import mask_cell,mask_cell_surface,get_bounding_box
     from copy import deepcopy
     
-    track_i=track[track['particle']==particle]
+    track_i=track[track['cell']==cell]
 #    time_coord=mask.coord('time')
 #    time_units=time_coord.units
     
@@ -24,20 +24,20 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,particle,
 
     for time_i in track_i['time'].values:    
         
-        logging.debug('start extracting cubes for particle '+str(particle) + ' and time '+str(time_i))
+        logging.debug('start extracting cubes for cell '+str(cell) + ' and time '+str(time_i))
 
         constraint_time = Constraint(time=time_i)
         mask_i=mask.extract(constraint_time)
-        mask_particle_i=mask_particle(mask_i,particle,masked=False)
-        mask_particle_surface_i=mask_particle_surface(mask_i,particle,masked=False,z_coord=z_coord)
+        mask_cell_i=mask_cell(mask_i,cell,masked=False)
+        mask_cell_surface_i=mask_cell_surface(mask_i,cell,masked=False,z_coord=z_coord)
 
-        x_dim=mask_particle_surface_i.coord_dims('projection_x_coordinate')[0]
-        y_dim=mask_particle_surface_i.coord_dims('projection_y_coordinate')[0]
-        x_coord=mask_particle_surface_i.coord('projection_x_coordinate')
-        y_coord=mask_particle_surface_i.coord('projection_y_coordinate')
+        x_dim=mask_cell_surface_i.coord_dims('projection_x_coordinate')[0]
+        y_dim=mask_cell_surface_i.coord_dims('projection_y_coordinate')[0]
+        x_coord=mask_cell_surface_i.coord('projection_x_coordinate')
+        y_coord=mask_cell_surface_i.coord('projection_y_coordinate')
     
-        if (mask_particle_surface_i.core_data()>0).any():
-            box_mask_i=get_bounding_box(mask_particle_surface_i.core_data(),buffer=1)
+        if (mask_cell_surface_i.core_data()>0).any():
+            box_mask_i=get_bounding_box(mask_cell_surface_i.core_data(),buffer=1)
     
             box_mask=[[x_coord.points[box_mask_i[x_dim][0]],x_coord.points[box_mask_i[x_dim][1]]],
                      [y_coord.points[box_mask_i[y_dim][0]],y_coord.points[box_mask_i[y_dim][1]]]]
@@ -65,8 +65,8 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,particle,
         constraint=constraint_time & constraint_x & constraint_y
     
     
-        mask_particle_i=mask_particle_i.extract(constraint_x & constraint_y)
-        mask_particle_surface_i=mask_particle_surface_i.extract(constraint_x & constraint_y)
+        mask_cell_i=mask_cell_i.extract(constraint_x & constraint_y)
+        mask_cell_surface_i=mask_cell_surface_i.extract(constraint_x & constraint_y)
     
     #load processes and auxillary variables for current time:
 #        logging.debug('start extracting cubes in cubleist')
@@ -83,7 +83,7 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,particle,
         cubelist_i=cubelist_in.extract(constraint)
 #        logging.debug('extracted cubes in cubelist')
        
-        cubelist_cell_sum.extend(sum_profile_mask(cubelist_i,height_levels,mask_particle_i))  
+        cubelist_cell_sum.extend(sum_profile_mask(cubelist_i,height_levels,mask_cell_i))  
         
 #    logging.debug('cubelist_cell_sum: ' +str(cubelist_cell_sum))
     cubelist_cell_sum_out=cubelist_cell_sum.merge()        
@@ -103,7 +103,7 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,particle,
     return cubelist_cell_sum_out, cubelist_cell_integrated_out,track_cell_integrated
 
 
-def collapse_profile_mask(variable_cube,height_levels_borders,mask_particle,coordinate='geopotential_height',method=None,fillnan=None):
+def collapse_profile_mask(variable_cube,height_levels_borders,mask_cell,coordinate='geopotential_height',method=None,fillnan=None):
     from iris.coords import DimCoord
     from iris.cube import Cube
     from iris import Constraint
@@ -127,10 +127,10 @@ def collapse_profile_mask(variable_cube,height_levels_borders,mask_particle,coor
         constraint_height=Constraint(geopotential_height= lambda cell: height_levels_borders[i_height]<= cell <height_levels_borders[i_height+1])
 #        mask_height=(variable_cube.coord(coordinate).points>=height_levels_borders[i_height]) & (variable_cube.coord(coordinate).points<height_levels_borders[i_height+1])
 #        logging.debug('mask_height.shape: ' +str(mask_height.shape))
-#        logging.debug('mask_particle.shape: ' +str(mask_particle.shape))
+#        logging.debug('mask_cell.shape: ' +str(mask_cell.shape))
 
-#        mask=(mask_height*mask_particle.core_data()).astype(int)
-        mask=mask_particle
+#        mask=(mask_height*mask_cell.core_data()).astype(int)
+        mask=mask_cell
 #        mask_list.append(mask)
         variable_cube_i=mask_cube(variable_cube,mask.core_data()).extract(constraint_height)        
 #        cube_list.append(variable_cube_i.data)
@@ -142,14 +142,14 @@ def collapse_profile_mask(variable_cube,height_levels_borders,mask_particle,coor
         variable_cube_out.data[i_height]=variable_cube_out_i
     return variable_cube_out
     
-def sum_profile_mask(cubelist_in,height_levels_borders,mask_particle):    
+def sum_profile_mask(cubelist_in,height_levels_borders,mask_cell):    
     from iris.cube import CubeList
     from iris.analysis import SUM
     from dask.array.ma import masked_invalid
     cubelist_out = CubeList()
     for variable in cubelist_in:
         #Sum up values for height slices and mask for all cubes in cubelist_in:
-        cube_cell_profile=collapse_profile_mask(variable_cube=variable,height_levels_borders=height_levels_borders,mask_particle=mask_particle,
+        cube_cell_profile=collapse_profile_mask(variable_cube=variable,height_levels_borders=height_levels_borders,mask_cell=mask_cell,
                                              coordinate='geopotential_height',method=SUM)
         cube_cell_profile.rename(variable.name())
         cube_cell_profile.data=masked_invalid(cube_cell_profile.core_data())
