@@ -1,0 +1,14 @@
+#!/bin/bash 
+#BSUB -q short-serial
+#BSUB -o bsub_%J.out 
+#BSUB -e bsub_%J.err 
+#BSUB -W 2:00
+#BSUB -n 1
+#BSUB -R "rusage[mem=5000]" -M 5000
+
+
+source activate acpc
+export OMP_NUM_THREADS=1
+python Statistics_Tracking.py
+
+
