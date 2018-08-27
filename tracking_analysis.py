@@ -14,6 +14,7 @@ from iris.analysis import MAX
 import os
 import pandas as pd
 import numpy as np
+import json
 
 from matplotlib import colors
 from html_animate import make_animation
@@ -53,7 +54,7 @@ def tracking_analysis(filenames,
                       plotting_parameters=None,
                       plotting_period=None,
                       n_core=1):
-    
+
     print('n_core: '+str(n_core))
     logging.debug('ncore: '+str(n_core) )
     
@@ -61,7 +62,15 @@ def tracking_analysis(filenames,
         dask.config.set(scheduler='single-threaded')
     elif n_core>1:
         dask.set_options(pool=ThreadPool(n_core-1))
-        
+    
+    os.makedirs(top_savedir_tracking,exist_ok=True)
+    f = open(os.path.join(top_savedir_tracking,'parameters_tracking.txt'), 'w')
+    f.write('tracking_period: ' + repr(tracking_period) + '\n' )
+    f.write('parameters_tracking: ' + repr(parameters_tracking) + '\n' )
+    f.write('parameters_segmentation_TWC: ' + repr(parameters_segmentation_TWC) + '\n' )
+    f.write('parameters_segmentation_w: ' + repr(parameters_segmentation_w) + '\n' )
+    f.close()
+    
     logging.debug('start tracking analysis')
     logging.debug('top_savedir_data: '+ top_savedir_data)
     logging.debug('top_savedir_tracking: '+ top_savedir_tracking)
@@ -141,11 +150,15 @@ def tracking_analysis(filenames,
         del(TWP,IWP,LWP,Airmass_path,Airmass)
 
         logging.debug('water path loaded and saved')
-        
+        # Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
+        zlib=False
+        # Set to compression level
+        complevel=1
+
         logging.debug(' start process rates')
 
-        processes_lumped=load_function(filenames,'processes_lumped').extract(constraint_tracking_period)                 
-        iris.save(processes_lumped,os.path.join(savedir,'Data_Processes_lumped.nc'))
+        processes_lumped=load_function(filenames,'processes_lumped').extract(loading_period)                 
+        iris.save(processes_lumped,os.path.join(savedir,'Data_Processes_lumped.nc'),zlib=zlib,complevel=complevel)
         logging.debug('loaded and saved processes')
         del(processes_lumped)
 
@@ -204,7 +217,7 @@ def tracking_analysis(filenames,
         os.makedirs(savedir,exist_ok=True)
         
         # Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
-        zlib=True
+        zlib=False
         # Set to compression level
         complevel=1
         
@@ -258,7 +271,7 @@ def tracking_analysis(filenames,
 #        # TWC=iris.load_cube(os.path.join(savedir_data,'Data.nc'),'TWC')    
 #    
         Mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
-#        Mask_w=iris.load_cube(os.path.join(savedir_tracking,'Watershed_w.nc'),'segmentation_mask')
+#        Mask_w=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w.nc'),'segmentation_mask')
         Mask_w_mid_max=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w_mid_max.nc'),'segmentation_mask')
 #       
         logging.debug('data loaded from savefile')
@@ -416,10 +429,9 @@ def tracking_analysis(filenames,
         logging.debug('loading tracks and Mask')
 
         tracks=pd.read_hdf(os.path.join(top_savedir_tracking,'Track.h5'),'table')
-        mask=iris.load_cube(os.path.join(top_savedir_tracking,'Watershed_TWC.nc'),'segmentation_mask')
+        mask=iris.load_cube(os.path.join(top_savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
         
         WC=iris.load(os.path.join(top_savedir_data,'Data_WC.nc')).extract(constraint_tracking_period)   
-        logging.debug('WC: '+ str(WC))
         logging.debug('loaded total water content from file')
         for cube in WC:
             for coord in cube.coords():
@@ -430,60 +442,6 @@ def tracking_analysis(filenames,
         for coord in airmass.coords():
             coord.var_name=coord.name()
         logging.debug('airmass loaded from file')
-
-        
-        if cell_selection is None:
-            cell_selection=tracks['cell'].unique()
-
-        # create empty list to store DataFrames with integrated values for each individual cell so that these can joined together in one at the end
-        list_track=[]
-        # loop over individual cells for analysis
-        for cell in cell_selection:                        
-            
-            logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
-            savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
-            os.makedirs(savedir_cell,exist_ok=True)
-
-            height_levels=np.arange(0,20001,1000.)
-            
-            mass_sum=iris.cube.CubeList()
-            
-            cube=WC.extract_strict('TWC')
-            cube_sum=cube*airmass
-            cube_sum.rename('total_water_mass')
-            cube_sum=add_geopotential_height(cube_sum)                
-            mass_sum.append(cube_sum)
-
-            cube=WC.extract_strict('LWC')
-            cube_sum=cube*airmass
-            cube_sum.rename('liquid_water_mass')
-            cube_sum=add_geopotential_height(cube_sum)                
-            mass_sum.append(cube_sum)
-
-            cube=WC.extract_strict('IWC')
-            cube_sum=cube*airmass
-            cube_sum.rename('frozen_water_mass')
-            cube_sum=add_geopotential_height(cube_sum)                
-            mass_sum.append(cube_sum)
-                
-            mass_cell_sum, mass_cell_integrated,track_mass_integrated=extract_cell_cubes_subset(cubelist_in=mass_sum,
-                                                                                                mask=mask,
-                                                                                                track=tracks,
-                                                                                                cell=cell,
-                                                                                                z_coord='model_level_number',
-                                                                                                height_levels=height_levels)
-
-            iris.save(mass_cell_sum,os.path.join(savedir_cell,'Mass_profile_'+str(int(cell))+'.nc'))
-            iris.save(mass_cell_integrated,os.path.join(savedir_cell,'Mass_integrated_'+str(int(cell))+'.nc'))
-            track_mass_integrated.to_hdf(os.path.join(savedir_cell,'track_mass_integrated_'+str(int(cell))+'.h5'),'table')
-            logging.debug( 'mass calculated and saved to '+ savedir_cell)
-            list_track.append(track_mass_integrated)
-
-        # concatenate DataFrames from intividual cells into one DataFrame containing all integrated values for all cells and save to file
-        track_mass=pd.concat(list_track)
-        track_mass.to_hdf(os.path.join(top_savedir_tracking,'track_mass_integrated.h5'),'table')
-
-        logging.debug( 'Data calculated and saved to file for all cells')
 
 
     if 'plot_mask_mass' in mode:
@@ -502,60 +460,113 @@ def tracking_analysis(filenames,
         W_mid_max=iris.load_cube(os.path.join(savedir_data,'Data_w_mid_max.nc')).extract(constraint_tracking_period)    
         TWP=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'TWP').extract(constraint_tracking_period)  
 
-        mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Watershed_TWC.nc'),'segmentation_mask')
-        mask_w=iris.load_cube(os.path.join(savedir_tracking,'Watershed_w.nc'),'segmentation_mask')
+        mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
+        mask_w=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w.nc'),'segmentation_mask')
 
-        logging.debug('data loaded from savefile')    
-                                 
-#        if cell_selection is None:
-#            cell_selection=np.unique(track['cell'])
+        logging.debug('data loaded from savefile')
+        
         if plotting_period:
             track_TWC_time=track_TWC.loc[(track_TWC['time']>plotting_period[0]) & (track_TWC['time']<plotting_period[1])]
             track_w_time=track_TWC.loc[(track_w['time']>plotting_period[0]) & (track_w['time']<plotting_period[1])]
 
-#        cell_selection=track_TWC_time.groupby('cell').agg({'ncells':'max'}).nlargest(columns='ncells',n=50).index.values
+
+    if ('interpolation_mass' in mode or 'plot mask_mass' in mode):
+
         if cell_selection is None:
-            cell_selection=track_TWC_time['cell'].unique()
+            cell_selection=tracks['cell'].unique()
 
-        cmap_TWP = colors.LinearSegmentedColormap.from_list("", ["white","lightblue",'lightsteelblue','cornflowerblue','royalblue','rebeccapurple','indigo'])
-        levels_TWP=[0,0.5,1,1.5,2,3,4,5,10,15,20,30,40,50]
+        # create empty list to store DataFrames with integrated values for each individual cell so that these can joined together in one at the end
+        list_track=[]
+        # loop over individual cells for analysis
+        
+        for cell in cell_selection:                        
 
-        cmap_w = colors.LinearSegmentedColormap.from_list("", ["forestgreen",'olivedrab','yellowgreen','khaki','gold'])
-        levels_w=[1,2,5,10,15]
+            if ('interpolation_mass' in mode):
+
+                logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+                savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
+                os.makedirs(savedir_cell,exist_ok=True)
+    
+                height_levels=np.arange(0,20001,1000.)
+                
+                mass_sum=iris.cube.CubeList()
+                
+                cube=WC.extract_strict('TWC')
+                cube_sum=cube*airmass
+                cube_sum.rename('total_water_mass')
+                cube_sum=add_geopotential_height(cube_sum)                
+                mass_sum.append(cube_sum)
+    
+                cube=WC.extract_strict('LWC')
+                cube_sum=cube*airmass
+                cube_sum.rename('liquid_water_mass')
+                cube_sum=add_geopotential_height(cube_sum)                
+                mass_sum.append(cube_sum)
+    
+                cube=WC.extract_strict('IWC')
+                cube_sum=cube*airmass
+                cube_sum.rename('frozen_water_mass')
+                cube_sum=add_geopotential_height(cube_sum)                
+                mass_sum.append(cube_sum)
+                    
+                mass_cell_sum, mass_cell_integrated,track_mass_integrated=extract_cell_cubes_subset(cubelist_in=mass_sum,
+                                                                                                    mask=mask,
+                                                                                                    track=tracks,
+                                                                                                    cell=cell,
+                                                                                                    z_coord='model_level_number',
+                                                                                                    height_levels=height_levels)
+    
+                iris.save(mass_cell_sum,os.path.join(savedir_cell,'Mass_profile_'+str(int(cell))+'.nc'))
+                iris.save(mass_cell_integrated,os.path.join(savedir_cell,'Mass_integrated_'+str(int(cell))+'.nc'))
+                track_mass_integrated.to_hdf(os.path.join(savedir_cell,'track_mass_integrated_'+str(int(cell))+'.h5'),'table')
+                logging.debug( 'mass calculated and saved to '+ savedir_cell)
+                list_track.append(track_mass_integrated)
+                
+            if ('plot_mask_mass' in mode):
+                cmap_TWP = colors.LinearSegmentedColormap.from_list("", ["white","lightblue",'lightsteelblue','cornflowerblue','royalblue','rebeccapurple','indigo'])
+                levels_TWP=[0,0.5,1,1.5,2,3,4,5,10,15,20,30,40,50]
+    
+                cmap_w = colors.LinearSegmentedColormap.from_list("", ["forestgreen",'olivedrab','yellowgreen','khaki','gold'])
+                levels_w=[1,2,5,10,15]
+    
+                logging.debug('Start plotting mask for cell'+ str(cell))
+                
+                savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
+                track_mass=pd.read_hdf(os.path.join(savedir_cell,'track_mass_integrated_'+str(int(cell))+'.h5'),'table')
+    
+                plot_mask_cell_track_static_timeseries(cell=cell,
+                                               track=track_mass, 
+                                               cog=None,
+                                               features=features,
+                                               mask_total=mask_TWC,
+                                               field_contour=W_mid_max, 
+                                               label_field_contour='midlevel max w (m/s)',
+                                               cmap_field_contour=cmap_w,
+                                               vmin_field_contour=0,vmax_field_contour=15,levels_field_contour=levels_w,
+                                               field_filled=TWP, 
+                                               label_field_filled='TWP (kg/m^2)',
+                                               cmap_field_filled=cmap_TWP,
+                                               vmin_field_filled=0,vmax_field_filled=50,levels_field_filled=levels_TWP,
+                                               track_variable=track_mass,variable='total_water_mass',
+                                               variable_ylabel='total condensate mass (kg)',
+                                               width=10000,n_extend=2,
+                                               name= 'Masking_TWC_static_mass_'+str(int(cell)), 
+                                               plotdir=os.path.join(plotdir,'Masking_TWC_static_mass'),
+                                               )
+                make_animation(input_dir=os.path.join(plotdir,'Masking_TWC_static_mass','Masking_TWC_static_mass_'+str(int(cell))),
+                               output=os.path.join(plotdir,'Animations_Masking_TWC_static_mass','Masking_TWC_static_mass_'+str(int(cell))),
+                               delay=200,make_gif=False)
+
+    if ('interpolation_mass' in mode):
+
+        # concatenate DataFrames from intividual cells into one DataFrame containing all integrated values for all cells and save to file
+        track_mass=pd.concat(list_track)
+        track_mass.to_hdf(os.path.join(top_savedir_tracking,'track_mass_integrated.h5'),'table')
+        logging.debug( 'Data calculated and saved to file for all cells')
 
 
-#        track_mass=pd.read_hdf(os.path.join(savedir_tracking,'track_mass_integrated.h5'),'table')
- 
-        for cell in cell_selection:  
-            logging.debug('Start plotting mask for cell'+ str(cell))
-            
-            savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
-            track_mass=pd.read_hdf(os.path.join(savedir_cell,'track_mass_integrated_'+str(int(cell))+'.h5'),'table')
 
-            plot_mask_cell_track_static_timeseries(cell=cell,
-                                           track=track_mass, 
-                                           cog=None,
-                                           features=features,
-                                           mask_total=mask_TWC,
-                                           field_contour=W_mid_max, 
-                                           label_field_contour='midlevel max w (m/s)',
-                                           cmap_field_contour=cmap_w,
-                                           vmin_field_contour=0,vmax_field_contour=15,levels_field_contour=levels_w,
-                                           field_filled=TWP, 
-                                           label_field_filled='TWP (kg/m^2)',
-                                           cmap_field_filled=cmap_TWP,
-                                           vmin_field_filled=0,vmax_field_filled=50,levels_field_filled=levels_TWP,
-                                           track_variable=track_mass,variable='total_water_mass',
-                                           variable_ylabel='total condensate mass (kg)',
-                                           width=10000,n_extend=2,
-                                           name= 'Masking_TWC_static_mass_'+str(int(cell)), 
-                                           plotdir=os.path.join(plotdir,'Masking_TWC_static_mass'),
-                                           )
-            make_animation(input_dir=os.path.join(plotdir,'Masking_TWC_static_mass','Masking_TWC_static_mass_'+str(int(cell))),
-                           output=os.path.join(plotdir,'Animations_Masking_TWC_static_mass','Masking_TWC_static_mass_'+str(int(cell))),
-                           delay=200,make_gif=False)
-
-    if 'interpolation_processes' in mode:     
+    if 'interpolation_processes' in mode:
         
         # Calculated summed up profiles and integrated values (hydrometeor mass and process rates) following each cell:
         logging.debug('Start calculations for individual cells')
@@ -563,7 +574,7 @@ def tracking_analysis(filenames,
         logging.debug('loading tracks and Mask')
 
         tracks=pd.read_hdf(os.path.join(top_savedir_tracking,'Track.h5'),'table')
-        mask=iris.load_cube(os.path.join(top_savedir_tracking,'Watershed_TWC.nc'),'segmentation_mask')
+        mask=iris.load_cube(os.path.join(top_savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
 
         processes_file=os.path.join(top_savedir_data,'Data_Processes_lumped.nc')
         if os.path.exists(processes_file):       
@@ -588,58 +599,9 @@ def tracking_analysis(filenames,
         for coord in airmass.coords():
             coord.var_name=coord.name()
         logging.debug('airmass loaded from file')
-
         
-        if cell_selection is None:
-            cell_selection=tracks['cell'].unique()
-
         # create empty list to store DataFrames with integrated values for each individual cell so that these can joined together in one at the end
         list_track=[]
-        
-        # loop over individual cells for analysis
-        for cell in cell_selection:                        
-            
-            logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
-            savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
-            os.makedirs(savedir_cell,exist_ok=True)
-
-            height_levels=np.arange(0,20001,1000.)
-                            
-            # Sum up process rates for individual cells
-            processes_lumped_sum=iris.cube.CubeList()
-            
-            
-            for cube in processes_lumped:
-                logging.debug('cube.proj_x: '+ str(cube.coord('projection_x_coordinate')))
-                logging.debug('cube.proj_x: '+ str(cube.coord('projection_y_coordinate')))
-                logging.debug('airmass.proj_x: '+ str(airmass.coord('projection_x_coordinate')))
-                logging.debug('airmass.proj_x: '+ str(airmass.coord('projection_y_coordinate')))
-                cube_sum=cube*airmass
-                cube_sum.rename(cube.name())
-                cube_sum=add_geopotential_height(cube_sum)
-                processes_lumped_sum.append(cube_sum)
-#            
-#
-            processes_lumped_cell_sum, processes_lumped_cell_integrated,track_processes_lumped_integrated=extract_cell_cubes_subset(cubelist_in=processes_lumped_sum,
-                                                                                                                                 mask=mask,
-                                                                                                                                 track=tracks,
-                                                                                                                                 cell=cell,
-                                                                                                                                 z_coord='model_level_number',
-                                                                                                                                 height_levels=height_levels)
-            
-            iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_'+str(int(cell))+'.nc'))
-            iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_'+str(int(cell))+'.nc'))
-            track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_'+str(int(cell))+'.h5'),'table')
-            
-            logging.debug( 'processes calculated and saved to '+ savedir_cell)
-#
-            list_track.append(track_processes_lumped_integrated)
-        
-        # concatenate DataFrames from intividual cells into one DataFrame containing all integrated values for all cells and save to file
-        track_processes=pd.concat(list_track)
-        track_processes.to_hdf(os.path.join(top_savedir_tracking,'track_processes_integrated.h5'),'table')
-
-        logging.debug( 'Data calculated and saved to file for all cells')
 
     if 'plot_mask_processes' in mode:
         
@@ -658,8 +620,8 @@ def tracking_analysis(filenames,
         W_mid_max=iris.load_cube(os.path.join(savedir_data,'Data_w_mid_max.nc')).extract(constraint_tracking_period)    
         TWP=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'TWP').extract(constraint_tracking_period)  
 
-        mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Watershed_TWC.nc'),'segmentation_mask')
-        mask_w=iris.load_cube(os.path.join(savedir_tracking,'Watershed_w.nc'),'segmentation_mask')
+        mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
+        mask_w=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w.nc'),'segmentation_mask')
 
         logging.debug('data loaded from savefile')    
                                  
@@ -669,51 +631,95 @@ def tracking_analysis(filenames,
             track_TWC_time=track_TWC.loc[(track_TWC['time']>plotting_period[0]) & (track_TWC['time']<plotting_period[1])]
             track_w_time=track_TWC.loc[(track_w['time']>plotting_period[0]) & (track_w['time']<plotting_period[1])]
 
-#        cell_selection=track_TWC_time.groupby('cell').agg({'ncells':'max'}).nlargest(columns='ncells',n=50).index.values
-        if cell_selection is None:
-            cell_selection=track_TWC_time['cell'].unique()
-
-        cmap_TWP = colors.LinearSegmentedColormap.from_list("", ["white","lightblue",'lightsteelblue','cornflowerblue','royalblue','rebeccapurple','indigo'])
-        levels_TWP=[0,0.5,1,1.5,2,3,4,5,10,15,20,30,40,50]
-
-        cmap_w = colors.LinearSegmentedColormap.from_list("", ["forestgreen",'olivedrab','yellowgreen','khaki','gold'])
-        levels_w=[0,1,2,5,10,15]
-
-
         processes=list(processes_names.keys())
         colors_processes=processes_colors
+
+    if (('interpolation_processes' in mode) or ('interpolation_processes' in mode)):
+
+        if cell_selection is None:
+            cell_selection=tracks['cell'].unique()
+
+        
+        # loop over individual cells for analysis
+        for cell in cell_selection:                        
+            
+            if ('interpolation_processes' in mode):
+
+                logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+                savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
+                os.makedirs(savedir_cell,exist_ok=True)
+    
+                height_levels=np.arange(0,20001,1000.)
+                                
+                # Sum up process rates for individual cells
+                processes_lumped_sum=iris.cube.CubeList()
+                
+                
+                for cube in processes_lumped:
+                    cube_sum=cube*airmass
+                    cube_sum.rename(cube.name())
+                    cube_sum=add_geopotential_height(cube_sum)
+                    processes_lumped_sum.append(cube_sum)
+    #            
+    #
+                processes_lumped_cell_sum, processes_lumped_cell_integrated,track_processes_lumped_integrated=extract_cell_cubes_subset(cubelist_in=processes_lumped_sum,
+                                                                                                                                     mask=mask,
+                                                                                                                                     track=tracks,
+                                                                                                                                     cell=cell,
+                                                                                                                                     z_coord='model_level_number',
+                                                                                                                                     height_levels=height_levels)
+                
+                iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_'+str(int(cell))+'.nc'))
+                iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_'+str(int(cell))+'.nc'))
+                track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_'+str(int(cell))+'.h5'),'table')
+                
+                logging.debug( 'processes calculated and saved to '+ savedir_cell)
+    #
+                list_track.append(track_processes_lumped_integrated)
+                logging.debug( 'Data calculated and saved to file for all cells')
+
+
+
+
+
+
  
-        for cell in cell_selection:  
-            logging.debug('Start plotting mask and integrated process rates for cell'+ str(cell))
-            savedir_cell=os.path.join(top_savedir_tracking,'cells',str(int(cell)))
-         
+            if 'plot_mask_processes' in mode:
 
-            track_processes=pd.read_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_'+str(int(cell))+'.h5'),'table')
+                cmap_TWP = colors.LinearSegmentedColormap.from_list("", ["white","lightblue",'lightsteelblue','cornflowerblue','royalblue','rebeccapurple','indigo'])
+                levels_TWP=[0,0.5,1,1.5,2,3,4,5,10,15,20,30,40,50]
+                cmap_w = colors.LinearSegmentedColormap.from_list("", ["forestgreen",'olivedrab','yellowgreen','khaki','gold'])
+                levels_w=[0,1,2,5,10,15]
+                track_processes=pd.read_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_'+str(int(cell))+'.h5'),'table')
+    
+                plot_mask_cell_track_static_timeseries(cell=cell,
+                                               track=track_processes, 
+                                               cog=None,
+                                               features=features,
+                                               mask_total=mask_TWC,
+                                               field_contour=W_mid_max, 
+                                               label_field_contour='midlevel max w (m/s)',
+                                               cmap_field_contour=cmap_w,
+                                               vmin_field_contour=0,vmax_field_contour=15,levels_field_contour=levels_w,
+                                               field_filled=TWP, 
+                                               label_field_filled='TWP (kg/m^2)',
+                                               cmap_field_filled=cmap_TWP,
+                                               vmin_field_filled=0,vmax_field_filled=50,levels_field_filled=levels_TWP,
+                                               track_variable=track_processes,variable=processes,
+                                               variable_label=processes,variable_color=colors_processes,
+                                               variable_ylabel='integrated process rate (kg/s)',variable_legend=True,
+                                               width=10000,n_extend=2,
+                                               name= 'Masking_TWC_static_processes_'+str(int(cell)), 
+                                               plotdir=os.path.join(plotdir,'Masking_TWC_static_processes'),
+                                               )
+                make_animation(input_dir=os.path.join(plotdir,'Masking_TWC_static_processes','Masking_TWC_static_processes_'+str(int(cell))),
+                               output=os.path.join(plotdir,'Animations_Masking_TWC_static_processes','Masking_TWC_static_processes_'+str(int(cell))),
+                               delay=200,make_gif=False)
 
-            plot_mask_cell_track_static_timeseries(cell=cell,
-                                           track=track_processes, 
-                                           cog=None,
-                                           features=features,
-                                           mask_total=mask_TWC,
-                                           field_contour=W_mid_max, 
-                                           label_field_contour='midlevel max w (m/s)',
-                                           cmap_field_contour=cmap_w,
-                                           vmin_field_contour=0,vmax_field_contour=15,levels_field_contour=levels_w,
-                                           field_filled=TWP, 
-                                           label_field_filled='TWP (kg/m^2)',
-                                           cmap_field_filled=cmap_TWP,
-                                           vmin_field_filled=0,vmax_field_filled=50,levels_field_filled=levels_TWP,
-                                           track_variable=track_processes,variable=processes,
-                                           variable_label=processes,variable_color=colors_processes,
-                                           variable_ylabel='integrated process rate (kg/s)',variable_legend=True,
-                                           width=10000,n_extend=2,
-                                           name= 'Masking_TWC_static_processes_'+str(int(cell)), 
-                                           plotdir=os.path.join(plotdir,'Masking_TWC_static_processes'),
-                                           )
-            make_animation(input_dir=os.path.join(plotdir,'Masking_TWC_static_processes','Masking_TWC_static_processes_'+str(int(cell))),
-                           output=os.path.join(plotdir,'Animations_Masking_TWC_static_processes','Masking_TWC_static_processes_'+str(int(cell))),
-                           delay=200,make_gif=True)
-
+        if ('interpolation_processes' in mode):
+            # concatenate DataFrames from intividual cells into one DataFrame containing all integrated values for all cells and save to file
+            track_processes=pd.concat(list_track)
+            track_processes.to_hdf(os.path.join(top_savedir_tracking,'track_processes_integrated.h5'),'table')
 
 
     if 'plot_lifetime' in mode:
@@ -757,5 +763,7 @@ def tracking_analysis(filenames,
         logging.info('lifetimes ncell plotted')
 
         make_animation(input_dir=plot_dir_cells,
-                       output=os.path.join(plot_dir,'Animation_Lifetime_cells'),delay=200)
+                       output=os.path.join(plot_dir,'Animation_Lifetime_cells'),
+                       delay=200,make_gif=False)
+
 

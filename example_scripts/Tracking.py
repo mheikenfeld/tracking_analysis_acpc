@@ -19,9 +19,6 @@ warnings.filterwarnings('ignore', category=FutureWarning, append=True)
 import sys
 model=sys.argv[1]
 case=sys.argv[2]
-v_max=float(sys.argv[3])
-#w_max_threshold=float(sys.argv[4])
-
 
 
 #Job_id=str(v_max)+'_'+str(w_max_threshold)
@@ -78,15 +75,15 @@ mode=[]
 #mode.append('load_data')    
 mode.append('tracking')    
 mode.append('segmentation')    
-#mode.append('plot')    
+mode.append('plot')    
 #mode.append('statistics')    
 #mode.append('profiles')
 #mode.append('plot_profiles')
 mode.append('plot_mask')
 #mode.append('interpolation_mass')
 #mode.append('plot_mask_mass')
-#mode.append('interpolation_processes')
-#mode.append('plot_mask_processes')
+mode.append('interpolation_processes')
+mode.append('plot_mask_processes')
 #mode.append('plot_lifetime')    
 
 
@@ -103,7 +100,7 @@ parameters_tracking['stubs']=4
 parameters_tracking['min_num']=4
 parameters_tracking['extrapolate']=0
 parameters_tracking['order']=1
-parameters_tracking['v_max']=v_max
+parameters_tracking['v_max']=10
 parameters_tracking['subnetwork_size']=100
 
 parameters_tracking['threshold']=[5,10] #m/s
@@ -124,7 +121,7 @@ top_savedir_data=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1
 #top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min',model,case,'multithreshold_test')
 #top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min',model,case,'multithreshold_test')
 #parameters_tracking['memory']=1
-#
+
 #top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min',model,case,'multithreshold_test_unfiltered')
 #top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min',model,case,'multithreshold_test_unfiltered')
 #parameters_tracking['memory']=1
@@ -138,16 +135,16 @@ top_savedir_data=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1
 #parameters_tracking['min_num']=0
 #parameters_tracking['min_distance']=2000
 #
-#
-top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min','version_1_1',model,case)
-top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min','version_1_1',model,case)
-parameters_tracking['memory']=1
-parameters_tracking['min_num']=0
-parameters_tracking['min_distance']=5000
-parameters_segmentation_TWC['threshold']=1e-3  # kg/kg mixing ratio
-parameters_segmentation_w['threshold']=5 # m/s
-
 ##
+#top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min','version_1_1',model,case)
+#top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min','version_1_1',model,case)
+#parameters_tracking['memory']=1
+#parameters_tracking['min_num']=0
+#parameters_tracking['min_distance']=5000
+#parameters_segmentation_TWC['threshold']=1e-3  # kg/kg mixing ratio
+#parameters_segmentation_w['threshold']=5 # m/s
+#
+####
 #top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min','version_1_2',model,case)
 #top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min','version_1_2',model,case)
 #parameters_tracking['memory']=1
@@ -156,7 +153,7 @@ parameters_segmentation_w['threshold']=5 # m/s
 #parameters_segmentation_TWC['threshold']=2e-3  # kg/kg mixing ratio
 #parameters_segmentation_w['threshold']=5 # m/s
 #parameters_tracking['n_erosion_threshold']=0
-##
+
 #top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min','version_1_3',model,case)
 #top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min','version_1_3',model,case)
 #parameters_tracking['memory']=1
@@ -165,7 +162,7 @@ parameters_segmentation_w['threshold']=5 # m/s
 #parameters_segmentation_TWC['threshold']=2e-3  # kg/kg mixing ratio
 #parameters_segmentation_w['threshold']=5 # m/s
 #parameters_tracking['n_erosion_threshold']=0
-#
+####
 #top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min','version_1_4',model,case)
 #top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min','version_1_4',model,case)
 #parameters_tracking['memory']=1
@@ -174,7 +171,17 @@ parameters_segmentation_w['threshold']=5 # m/s
 #parameters_segmentation_TWC['threshold']=2e-3  # kg/kg mixing ratio
 #parameters_segmentation_w['threshold']=5 # m/s
 #parameters_tracking['n_erosion_threshold']=0
-#
+#]
+top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min','version_1_5',model,case)
+top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min','version_1_5',model,case)
+parameters_tracking['memory']=1
+parameters_tracking['min_num']=0
+parameters_tracking['min_distance']=0
+parameters_segmentation_TWC['threshold']=2e-3  # kg/kg mixing ratio
+parameters_segmentation_w['threshold']=3 # m/s
+parameters_tracking['n_erosion_threshold']=0
+parameters_tracking['threshold']=[3,5,10] #m/s
+
 #top_savedir_tracking=os.path.join(acpc_workspace,'Analysis/mheiken/Tracking','Save_1min',model,case,'multithreshold_30')
 #top_plotdir=os.path.join(acpc_workspace,'public/mheiken/Tracking','Plots_1min',model,case,'multithreshold_30')
 #parameters_tracking['memory']=0
