@@ -64,7 +64,6 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
 
         constraint=constraint_time & constraint_x & constraint_y
     
-    
         mask_cell_i=mask_cell_i.extract(constraint_x & constraint_y)
         mask_cell_surface_i=mask_cell_surface_i.extract(constraint_x & constraint_y)
     
