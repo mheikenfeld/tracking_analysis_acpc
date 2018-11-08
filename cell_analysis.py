@@ -1,26 +1,20 @@
 import logging
 
-
-    
 def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
                               z_coord='model_level_number', height_levels=None):
     
     from iris.analysis import SUM
     from iris import Constraint
     from iris.cube import CubeList
+    from iris.coords import AuxCoord
     import numpy as np
     from cloudtrack import mask_cell,mask_cell_surface,get_bounding_box
     from copy import deepcopy
     
     track_i=track[track['cell']==cell]
-#    time_coord=mask.coord('time')
-#    time_units=time_coord.units
     
     cubelist_cell_integrated_out=CubeList()
     cubelist_cell_sum=CubeList()
-
-#    logging.debug('cubelist_in: '+ str(cubelist_in))
-#    logging.debug('cubelist_in[0]: '+ str(cubelist_in[0]))
 
     for time_i in track_i['time'].values:    
         
@@ -28,8 +22,8 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
 
         constraint_time = Constraint(time=time_i)
         mask_i=mask.extract(constraint_time)
-        mask_cell_i=mask_cell(mask_i,cell,masked=False)
-        mask_cell_surface_i=mask_cell_surface(mask_i,cell,masked=False,z_coord=z_coord)
+        mask_cell_i=mask_cell(mask_i,cell,track_i,masked=False)
+        mask_cell_surface_i=mask_cell_surface(mask_i,cell,track_i,masked=False,z_coord=z_coord)
 
         x_dim=mask_cell_surface_i.coord_dims('projection_x_coordinate')[0]
         y_dim=mask_cell_surface_i.coord_dims('projection_y_coordinate')[0]
@@ -51,7 +45,6 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
 
         n_add_width=2
         
-        
         box_slice=[[x-(width+n_add_width)*dx,x+(width+n_add_width)*dx],[y-(width+n_add_width)*dx,y+(width+n_add_width)*dx]]
                
         x_min=np.nanmin([box_mask[0][0],box_slice[0][0]])
@@ -66,35 +59,19 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
     
         mask_cell_i=mask_cell_i.extract(constraint_x & constraint_y)
         mask_cell_surface_i=mask_cell_surface_i.extract(constraint_x & constraint_y)
-    
-    #load processes and auxillary variables for current time:
-#        logging.debug('start extracting cubes in cubleist')
-#        
-#        logging.debug('constraint: '+ str(constraint))
-#        logging.debug('cubelist_in: '+ str(cubelist_in))
-#        logging.debug('cubelist_in[0].coord("time"): '+ str(cubelist_in[0].coord('time')))
-#
-#        logging.debug('cubelist_in[0].extract(constraint_time): ' +str(cubelist_in[0].extract(constraint_time)))
-#        logging.debug('cubelist_in[0].extract(constraint_x): ' +str(cubelist_in[0].extract(constraint_x)))
-#        logging.debug('cubelist_in[0].extract(constraint_y): ' +str(cubelist_in[0].extract(constraint_y)))
-#
-        
+           
         cubelist_i=cubelist_in.extract(constraint)
-#        logging.debug('extracted cubes in cubelist')
        
-        cubelist_cell_sum.extend(sum_profile_mask(cubelist_i,height_levels,mask_cell_i))  
-        
-#    logging.debug('cubelist_cell_sum: ' +str(cubelist_cell_sum))
+        cubelist_cell_sum.extend(sum_profile_mask(cubelist_i,height_levels,mask_cell_i))
     cubelist_cell_sum_out=cubelist_cell_sum.merge()        
-    
+    for cube in cubelist_cell_sum_out:
+        cell_time_coord=AuxCoord(track_i['time_cell'].dt.total_seconds().values, units='s',long_name='time_cell')
+        cube.add_aux_coord(cell_time_coord,cube.coord_dims('time')[0])
+
     for cube in cubelist_cell_sum_out:
         cubelist_cell_integrated_out.append(cube.collapsed(('geopotential_height'),SUM))
             
     track_cell_integrated=deepcopy(track_i)
-#    logging.debug('track_cell_integrated: '+str(track_cell_integrated))
-#    logging.debug('cubelist_cell_sum_out: '+str(cubelist_cell_sum_out))
-#    logging.debug('cubelist_cell_integrated_out: '+str(cubelist_cell_integrated_out))
-#    logging.debug('cubelist_cell_integrated_out[0]: '+str(cubelist_cell_integrated_out[0]))
 #
     for cube in cubelist_cell_integrated_out:
         track_cell_integrated[cube.name()]=cube.core_data()
@@ -109,9 +86,6 @@ def collapse_profile_mask(variable_cube,height_levels_borders,mask_cell,coordina
     from numpy import array,transpose
     import numpy as np
     from cloudtrack import mask_cube
-    
-#    mask_list=[]
-#    cube_list=[]
 
     # Set midpoints of height bounds as coordinate values
     height_levels=height_levels_borders[0:-1]+0.5*np.diff(height_levels_borders)
@@ -120,20 +94,11 @@ def collapse_profile_mask(variable_cube,height_levels_borders,mask_cell,coordina
     #Create DimCoord of height levels and add coordinates
     dim_coordinate=DimCoord(height_levels,standard_name=coordinate,units=variable_cube.coord(coordinate).units,bounds=bounds)
     variable_cube_out=Cube(height_levels,units=variable_cube.units,long_name=variable_cube.name(),dim_coords_and_dims=[(dim_coordinate,0)])
-    variable_cube_out.add_aux_coord(variable_cube.coord('time'))
-
+    variable_cube_out.add_aux_coord(variable_cube.coord('time'))    
     for i_height,height in enumerate(height_levels_borders[:-1]):
         constraint_height=Constraint(geopotential_height= lambda cell: height_levels_borders[i_height]<= cell <height_levels_borders[i_height+1])
-#        mask_height=(variable_cube.coord(coordinate).points>=height_levels_borders[i_height]) & (variable_cube.coord(coordinate).points<height_levels_borders[i_height+1])
-#        logging.debug('mask_height.shape: ' +str(mask_height.shape))
-#        logging.debug('mask_cell.shape: ' +str(mask_cell.shape))
-
-#        mask=(mask_height*mask_cell.core_data()).astype(int)
         mask=mask_cell
-#        mask_list.append(mask)
         variable_cube_i=mask_cube(variable_cube,mask.core_data()).extract(constraint_height)        
-#        cube_list.append(variable_cube_i.data)
-#        variable_cube_i.remove_coord(coordinate)
         variable_cube_i=variable_cube_i.collapsed(('model_level_number','x','y'),method)
         variable_cube_out_i=variable_cube_i.core_data()
         if fillnan is not None:
