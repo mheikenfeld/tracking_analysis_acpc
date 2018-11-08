@@ -21,156 +21,11 @@ import pandas as pd
 import numpy as np
 
 from matplotlib import colors
-from html_animate import make_animation
 
 from multiprocessing.pool import ThreadPool
 import dask
 
 from wrfmpdiag import processes_colors
-
-processes_colors, processes_names = processes_colors(microphysics_scheme='RAMS', colors_processes='lumped')
-
-def add_geopotential_height(cube):
-    from .make_geopotential_height_coord import geopotential_height_coord,geopotential_height_coord_stag
-    coord_names=[coord.name() for coord in cube.coords()]
-    if ('model_level_number' in coord_names) and ('geopotential_height' not in coord_names):
-        if cube.coord('model_level_number').shape[0]==95:
-            cube.add_aux_coord(geopotential_height_coord_stag,data_dims=cube.coord_dims('model_level_number'))
-        if cube.coord('model_level_number').shape[0]==94:
-            cube.add_aux_coord(geopotential_height_coord,data_dims=cube.coord_dims('model_level_number'))
-    return cube
-
-def load_data(filenames,top_savedir_data,savedir,constraint_loading_period,load_function):
-    logging.info('start loading data for tracking')
-
-    savedir=os.path.join(top_savedir_data)
-    os.makedirs(os.path.join(savedir),exist_ok=True)
-    
-    logging.debug(' start loading w')
-    W=load_function(filenames,'w').extract(constraint_loading_period)                 
-    iris.save([W],os.path.join(savedir,'Data_w.nc'))    
-    logging.debug(' w loaded and saved')
-    
-    W_max=W.collapsed('model_level_number',MAX)
-    logging.debug('w_max calculated')
-    iris.save([W_max],os.path.join(savedir,'Data_w_max.nc'))    
-    logging.debug('w max loaded and saved')
-
-    # Create 2D field of maximum midlevel vertical velocity
-    # Constraint for choosing midlevel heights for w mask
-    constraint_midlevel=iris.Constraint(model_level_number= lambda cell: 30 < cell < 48)
-    W_mid = W.extract(constraint_midlevel) # get midlevel data
-    W_mid_max = W_mid.collapsed('model_level_number',MAX) # get Maximum column updraft in mid-level data
-    iris.save([W_mid_max],os.path.join(savedir,'Data_w_mid_max.nc'))    
-    logging.debug('w_mid_max loaded and saved')
-    
-    del(W,W_max,W_mid,W_mid_max)
-
-    
-    logging.debug(' start loading water content')
-    IWC=load_function(filenames,'IWC').extract(constraint_loading_period)  
-    LWC=load_function(filenames,'LWC').extract(constraint_loading_period)  
-    TWC=IWC+LWC
-    TWC.rename('TWC')
-    iris.save([TWC,LWC,IWC],os.path.join(savedir,'Data_WC.nc'))#                
-    logging.debug('water content loaded and saved')
-    del(TWC,IWC,LWC)
-
-
-    logging.debug(' start loading water path')
-    Airmass=load_function(filenames,'airmass').extract(constraint_loading_period) 
-    logging.debug('airmass loaded')
-
-    Airmass_path=load_function(filenames,'airmass_path').extract(constraint_loading_period) 
-    logging.debug('airmass path loaded')
-
-    IWP=load_function(filenames,'IWP').extract(constraint_loading_period) 
-    logging.debug('ice water path loaded')
-
-    
-    LWP=load_function(filenames,'LWP').extract(constraint_loading_period)      
-    logging.debug('liquid water path loaded')
-
-    TWP=IWP+LWP
-    TWP.rename('TWP')
-
-    iris.save([TWP,LWP,IWP,Airmass,Airmass_path],os.path.join(savedir,'Data_WP.nc'))
-    del(TWP,IWP,LWP,Airmass_path,Airmass)
-
-    logging.debug('water path loaded and saved')
-        
-def load_processes(filenames,top_savedir_data,savedir,constraint_loading_period,load_function):
-    logging.info('start loading data for tracking')
-
-    savedir=os.path.join(top_savedir_data)
-    os.makedirs(os.path.join(savedir),exist_ok=True)
-
-    #Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
-    zlib=False
-    # Set to compression level
-    complevel=1
-
-    logging.debug(' start process rates')
-
-    processes_lumped=load_function(filenames,'processes_lumped').extract(constraint_loading_period)                 
-    iris.save(processes_lumped,os.path.join(savedir,'Data_Processes_lumped.nc'))#,zlib=zlib,complevel=complevel)
-    logging.debug('loaded and saved processes')
-    del(processes_lumped)
-
-    logging.debug('data loaded and saved')
-
-
-def plots_maps_loop(top_savedir_data,top_savedir_tracking,top_plotdir,plotting_parameters,constraint_tracking_period):
-    savedir_data=os.path.join(top_savedir_data)
-    savedir_tracking=os.path.join(top_savedir_tracking)
-    plotdir=os.path.join(top_plotdir)
-
-    Track=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
-    Features=pd.read_hdf(os.path.join(savedir_tracking,'Features.h5'),'table')
-
-    W_max=iris.load_cube(os.path.join(savedir_data,'Data_w_max.nc')).extract(constraint_tracking_period)
-    TWP=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'TWP')    
-
-    Mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
-    Mask_w=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w.nc'),'segmentation_mask')
-    Mask_w_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w_TWC.nc'),'segmentation_mask')
-
-    logging.debug('data loaded from savefile')
-
-    axis_extent=plotting_parameters['axis_extent']
-
-    plot_tracks_mask_field_loop(track=Track,field=W_max,mask=Mask_w,features=Features,
-                                plot_dir=os.path.join(plotdir,'w_max_Mask_w'),name='w_max_Mask_w',
-                                 axis_extent=axis_extent,#figsize=figsize,orientation_colorbar='horizontal',pad_colorbar=0.2,
-                                 vmin=0,vmax=30,
-                                 plot_outline=True,plot_marker=True,marker_track=',',plot_number=True)
-
-    make_animation(input_dir=os.path.join(plotdir,'w_max_Mask_w'),
-                   output=os.path.join(plotdir,'Animation_w_max_Mask_w','w_max_Mask_w'),
-                                          delay=200,make_gif=False)
-    logging.debug('W_max with w mask plotted')
-    
-    plot_tracks_mask_field_loop(track=Track,field=W_max,mask=Mask_w_TWC,features=Features,
-                                plot_dir=os.path.join(plotdir,'w_max_Mask_w_TWC'),name='w_max_Mask_w_TWC',
-                                axis_extent=axis_extent,#figsize=figsize,orientation_colorbar='horizontal',pad_colorbar=0.2,
-                                vmin=0,vmax=30,
-                                plot_outline=True,plot_marker=True,marker_track='x',plot_number=True,plot_features=True)
-    logging.debug('W_max with w_TWC mask plotted')
-    
-    make_animation(input_dir=os.path.join(plotdir,'w_max_Mask_w_TWC'),
-                   output=os.path.join(plotdir,'Animation_w_max_Mask_w_TWC','w_max_Mask_w_TWC'),
-                                          delay=200,make_gif=False)
-
-    plot_tracks_mask_field_loop(track=Track,field=TWP,mask=Mask_TWC,features=Features,
-                                plot_dir=os.path.join(plotdir,'TWP_Mask_TWC'),name='TWP_Mask_TWC',
-                                axis_extent=axis_extent,#figsize=figsize,orientation_colorbar='horizontal',pad_colorbar=0.2,
-                                vmin=0,vmax=30,
-                                plot_outline=True,plot_marker=True,marker_track='x',plot_number=True,plot_features=True)
-    logging.debug('TWP with w_TWC plotted')
-
-    make_animation(input_dir=os.path.join(plotdir,'TWP_Mask_TWC'),
-                   output=os.path.join(plotdir,'Animation_TWP_Mask_TWC','TWP_Mask_TWC'),
-                                          delay=200,make_gif=False)
 
 
 def tracking_analysis(filenames,
@@ -192,6 +47,9 @@ def tracking_analysis(filenames,
                       plotting_parameters=None,
                       plotting_period=None,
                       n_core=1):
+    
+    from html_animate import make_animation
+
 
     print('n_core: '+str(n_core))
     logging.debug('ncore: '+str(n_core) )
@@ -230,10 +88,9 @@ def tracking_analysis(filenames,
 
 
     if 'load_data' in mode:
-        
+
         load_data(filenames=filenames,
                   top_savedir_data=top_savedir_data,
-                  savedir=savedir,
                   constraint_loading_period=constraint_loading_period,
                   load_function=load_function)
 
@@ -241,7 +98,6 @@ def tracking_analysis(filenames,
         
         load_processes(filenames=filenames,
                        top_savedir_data=top_savedir_data,
-                       savedir=savedir,
                        constraint_loading_period=constraint_loading_period,
                        load_function=load_function)
 
@@ -1014,6 +870,7 @@ def tracking_analysis(filenames,
 
     if any([x in mode for x in ['plot_mask_processes_TWC','plot_mask_processes_w_TWC']]):
 
+
         logging.debug('Start plotting tracks and masks for individual cells')
 
         savedir_data=os.path.join(top_savedir_data)
@@ -1039,9 +896,7 @@ def tracking_analysis(filenames,
         if plotting_period:
             track_TWC_time=track_TWC.loc[(track_TWC['time']>plotting_period[0]) & (track_TWC['time']<plotting_period[1])]
             track_w_time=track_TWC.loc[(track_w['time']>plotting_period[0]) & (track_w['time']<plotting_period[1])]
-
-        processes=list(processes_names.keys())
-        colors_processes=processes_colors
+        
 
     if any([x in mode for x in ['plot_mask_processes_TWC',
                                 'interpolation_processes_TWC',
@@ -1127,7 +982,11 @@ def tracking_analysis(filenames,
 
  
             if 'plot_mask_processes_TWC' in mode:
-
+                
+                processes_colors, processes_names = processes_colors(microphysics_scheme='RAMS', colors_processes='lumped')
+                processes=list(processes_names.keys())
+                colors_processes=processes_colors
+                
                 cmap_TWP = colors.LinearSegmentedColormap.from_list("", ["white","lightblue",'lightsteelblue','cornflowerblue','royalblue','rebeccapurple','indigo'])
                 levels_TWP=[0,0.5,1,1.5,2,3,4,5,10,15,20,30,40,50]
                 cmap_w = colors.LinearSegmentedColormap.from_list("", ["forestgreen",'olivedrab','yellowgreen','khaki','gold'])
@@ -1159,6 +1018,10 @@ def tracking_analysis(filenames,
                                delay=200,make_gif=False)
 
             if 'plot_mask_processes_w_TWC' in mode:
+
+                processes_colors, processes_names = processes_colors(microphysics_scheme='RAMS', colors_processes='lumped')
+                processes=list(processes_names.keys())
+                colors_processes=processes_colors
 
                 cmap_TWP = colors.LinearSegmentedColormap.from_list("", ["white","lightblue",'lightsteelblue','cornflowerblue','royalblue','rebeccapurple','indigo'])
                 levels_TWP=[0,0.5,1,1.5,2,3,4,5,10,15,20,30,40,50]
@@ -1395,3 +1258,146 @@ def tracking_analysis(filenames,
 
 
 logging.debug('done')
+
+def add_geopotential_height(cube):
+    from .make_geopotential_height_coord import geopotential_height_coord,geopotential_height_coord_stag
+    coord_names=[coord.name() for coord in cube.coords()]
+    if ('model_level_number' in coord_names) and ('geopotential_height' not in coord_names):
+        if cube.coord('model_level_number').shape[0]==95:
+            cube.add_aux_coord(geopotential_height_coord_stag,data_dims=cube.coord_dims('model_level_number'))
+        if cube.coord('model_level_number').shape[0]==94:
+            cube.add_aux_coord(geopotential_height_coord,data_dims=cube.coord_dims('model_level_number'))
+    return cube
+
+def load_data(filenames,top_savedir_data,savedir,constraint_loading_period,load_function):
+    logging.info('start loading data for tracking')
+
+    savedir=os.path.join(top_savedir_data)
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+    
+    logging.debug(' start loading w')
+    W=load_function(filenames,'w').extract(constraint_loading_period)                 
+    iris.save([W],os.path.join(savedir,'Data_w.nc'))    
+    logging.debug(' w loaded and saved')
+    
+    W_max=W.collapsed('model_level_number',MAX)
+    logging.debug('w_max calculated')
+    iris.save([W_max],os.path.join(savedir,'Data_w_max.nc'))    
+    logging.debug('w max loaded and saved')
+
+    # Create 2D field of maximum midlevel vertical velocity
+    # Constraint for choosing midlevel heights for w mask
+    constraint_midlevel=iris.Constraint(model_level_number= lambda cell: 30 < cell < 48)
+    W_mid = W.extract(constraint_midlevel) # get midlevel data
+    W_mid_max = W_mid.collapsed('model_level_number',MAX) # get Maximum column updraft in mid-level data
+    iris.save([W_mid_max],os.path.join(savedir,'Data_w_mid_max.nc'))    
+    logging.debug('w_mid_max loaded and saved')
+    
+    del(W,W_max,W_mid,W_mid_max)
+
+    
+    logging.debug(' start loading water content')
+    IWC=load_function(filenames,'IWC').extract(constraint_loading_period)  
+    LWC=load_function(filenames,'LWC').extract(constraint_loading_period)  
+    TWC=IWC+LWC
+    TWC.rename('TWC')
+    iris.save([TWC,LWC,IWC],os.path.join(savedir,'Data_WC.nc'))#                
+    logging.debug('water content loaded and saved')
+    del(TWC,IWC,LWC)
+
+
+    logging.debug(' start loading water path')
+    Airmass=load_function(filenames,'airmass').extract(constraint_loading_period) 
+    logging.debug('airmass loaded')
+
+    Airmass_path=load_function(filenames,'airmass_path').extract(constraint_loading_period) 
+    logging.debug('airmass path loaded')
+
+    IWP=load_function(filenames,'IWP').extract(constraint_loading_period) 
+    logging.debug('ice water path loaded')
+
+    
+    LWP=load_function(filenames,'LWP').extract(constraint_loading_period)      
+    logging.debug('liquid water path loaded')
+
+    TWP=IWP+LWP
+    TWP.rename('TWP')
+
+    iris.save([TWP,LWP,IWP,Airmass,Airmass_path],os.path.join(savedir,'Data_WP.nc'))
+    del(TWP,IWP,LWP,Airmass_path,Airmass)
+
+    logging.debug('water path loaded and saved')
+        
+def load_processes(filenames,top_savedir_data,savedir,constraint_loading_period,load_function):
+    logging.info('start loading data for tracking')
+
+    savedir=os.path.join(top_savedir_data)
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+
+    #Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
+    zlib=False
+    # Set to compression level
+    complevel=1
+
+    logging.debug(' start process rates')
+
+    processes_lumped=load_function(filenames,'processes_lumped').extract(constraint_loading_period)                 
+    iris.save(processes_lumped,os.path.join(savedir,'Data_Processes_lumped.nc'))#,zlib=zlib,complevel=complevel)
+    logging.debug('loaded and saved processes')
+    del(processes_lumped)
+
+    logging.debug('data loaded and saved')
+
+
+def plots_maps_loop(top_savedir_data,top_savedir_tracking,top_plotdir,plotting_parameters,constraint_tracking_period):
+    from html_animate import make_animation
+    savedir_data=os.path.join(top_savedir_data)
+    savedir_tracking=os.path.join(top_savedir_tracking)
+    plotdir=os.path.join(top_plotdir)
+
+    Track=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+    Features=pd.read_hdf(os.path.join(savedir_tracking,'Features.h5'),'table')
+
+    W_max=iris.load_cube(os.path.join(savedir_data,'Data_w_max.nc')).extract(constraint_tracking_period)
+    TWP=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'TWP')    
+
+    Mask_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
+    Mask_w=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w.nc'),'segmentation_mask')
+    Mask_w_TWC=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w_TWC.nc'),'segmentation_mask')
+
+    logging.debug('data loaded from savefile')
+
+    axis_extent=plotting_parameters['axis_extent']
+
+    plot_tracks_mask_field_loop(track=Track,field=W_max,mask=Mask_w,features=Features,
+                                plot_dir=os.path.join(plotdir,'w_max_Mask_w'),name='w_max_Mask_w',
+                                 axis_extent=axis_extent,#figsize=figsize,orientation_colorbar='horizontal',pad_colorbar=0.2,
+                                 vmin=0,vmax=30,
+                                 plot_outline=True,plot_marker=True,marker_track=',',plot_number=True)
+
+    make_animation(input_dir=os.path.join(plotdir,'w_max_Mask_w'),
+                   output=os.path.join(plotdir,'Animation_w_max_Mask_w','w_max_Mask_w'),
+                                          delay=200,make_gif=False)
+    logging.debug('W_max with w mask plotted')
+    
+    plot_tracks_mask_field_loop(track=Track,field=W_max,mask=Mask_w_TWC,features=Features,
+                                plot_dir=os.path.join(plotdir,'w_max_Mask_w_TWC'),name='w_max_Mask_w_TWC',
+                                axis_extent=axis_extent,#figsize=figsize,orientation_colorbar='horizontal',pad_colorbar=0.2,
+                                vmin=0,vmax=30,
+                                plot_outline=True,plot_marker=True,marker_track='x',plot_number=True,plot_features=True)
+    logging.debug('W_max with w_TWC mask plotted')
+    
+    make_animation(input_dir=os.path.join(plotdir,'w_max_Mask_w_TWC'),
+                   output=os.path.join(plotdir,'Animation_w_max_Mask_w_TWC','w_max_Mask_w_TWC'),
+                                          delay=200,make_gif=False)
+
+    plot_tracks_mask_field_loop(track=Track,field=TWP,mask=Mask_TWC,features=Features,
+                                plot_dir=os.path.join(plotdir,'TWP_Mask_TWC'),name='TWP_Mask_TWC',
+                                axis_extent=axis_extent,#figsize=figsize,orientation_colorbar='horizontal',pad_colorbar=0.2,
+                                vmin=0,vmax=30,
+                                plot_outline=True,plot_marker=True,marker_track='x',plot_number=True,plot_features=True)
+    logging.debug('TWP with w_TWC plotted')
+
+    make_animation(input_dir=os.path.join(plotdir,'TWP_Mask_TWC'),
+                   output=os.path.join(plotdir,'Animation_TWP_Mask_TWC','TWP_Mask_TWC'),
+                                          delay=200,make_gif=False)
