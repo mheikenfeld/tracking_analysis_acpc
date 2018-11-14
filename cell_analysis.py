@@ -8,7 +8,7 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,cell,
     from iris.cube import CubeList
     from iris.coords import AuxCoord
     import numpy as np
-    from cloudtrack import mask_cell,mask_cell_surface,get_bounding_box
+    from tobac import mask_cell,mask_cell_surface,get_bounding_box
     from copy import deepcopy
     
     track_i=track[track['cell']==cell]
@@ -85,7 +85,7 @@ def collapse_profile_mask(variable_cube,height_levels_borders,mask_cell,coordina
     from iris import Constraint
     from numpy import array,transpose
     import numpy as np
-    from cloudtrack import mask_cube
+    from tobac import mask_cube
 
     # Set midpoints of height bounds as coordinate values
     height_levels=height_levels_borders[0:-1]+0.5*np.diff(height_levels_borders)
