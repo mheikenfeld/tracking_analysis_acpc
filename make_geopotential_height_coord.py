@@ -28,3 +28,14 @@ geopotential_height_array=np.array([-24.0999279 ,    24.6950779 ,    75.92983246
 
 geopotential_height_coord=iris.coords.AuxCoord(geopotential_height_array[:-1],standard_name='geopotential_height',units='m')
 geopotential_height_coord_stag=iris.coords.AuxCoord(geopotential_height_array,standard_name='geopotential_height',units='m')
+
+
+def add_geopotential_height(cube):
+    coord_names=[coord.name() for coord in cube.coords()]
+    if ('model_level_number' in coord_names) and ('geopotential_height' not in coord_names):
+        if cube.coord('model_level_number').shape[0]==95:
+            cube.add_aux_coord(geopotential_height_coord_stag,data_dims=cube.coord_dims('model_level_number'))
+        if cube.coord('model_level_number').shape[0]==94:
+            cube.add_aux_coord(geopotential_height_coord,data_dims=cube.coord_dims('model_level_number'))
+    return cube
+

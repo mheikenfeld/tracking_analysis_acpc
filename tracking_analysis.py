@@ -1,7 +1,8 @@
-import matplotlib
-matplotlib.use('Agg')
-import logging
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
+
+import logging
 
 from tobac import plot_tracks_mask_field_loop
 from tobac import plot_mask_cell_track_static_timeseries
@@ -13,7 +14,7 @@ from tobac import segmentation_3D
 from tobac import linking_trackpy
 from tobac import get_spacings
 
-from .cell_analysis import extract_cell_cubes_subset
+from .cell_analysis import extract_cell_cubes_subset,extract_cell_cubes_subset_2D,interpolate_alongacross_mean
 import iris
 from iris.analysis import MIN,MAX,MEAN,MEDIAN,PERCENTILE
 import os
@@ -67,7 +68,9 @@ def tracking_analysis(filenames,
     logging.debug('top_plotdir: '+ top_plotdir)
 
     logging.debug('number of processors used :'+ str(n_core))
-   
+    
+    logging.debug(f'cell_selection : {cell_selection}')
+
     if loading_period:
         constraint_loading_period=iris.Constraint(time = lambda cell: loading_period[0] <= cell <  loading_period[1])
     elif loading_period is None:
@@ -79,48 +82,74 @@ def tracking_analysis(filenames,
         constraint_tracking_period=iris.Constraint(None)
 
     #Tracking setup:
-
-    if 'load_data' in mode:
-
+    compression=True
+    if 'load_data_w' in mode:
         load_w(filenames=filenames,
-                  top_savedir_data=top_savedir_data,
+                  savedir=top_savedir_data,
                   constraint_loading_period=constraint_loading_period,
-                  load_function=load_function)
+                  load_function=load_function,compression=compression)
 
+    if 'load_data_WC' in mode:
         load_WC(filenames=filenames,
-                  top_savedir_data=top_savedir_data,
+                  savedir=top_savedir_data,
                   constraint_loading_period=constraint_loading_period,
-                  load_function=load_function)
+                  load_function=load_function,compression=compression)
 
-
+    if 'load_data_WP' in mode:
         load_WP(filenames=filenames,
-                  top_savedir_data=top_savedir_data,
+                  savedir=top_savedir_data,
                   constraint_loading_period=constraint_loading_period,
-                  load_function=load_function)
+                  load_function=load_function,compression=compression)
+        
+    if 'load_data_Airmass' in mode:
+        load_Airmass(filenames=filenames,
+                  savedir=top_savedir_data,
+                  constraint_loading_period=constraint_loading_period,
+                  load_function=load_function,compression=compression)
 
+    if 'load_data_temperature' in mode:
+        load_temperature(filenames=filenames,
+                  savedir=top_savedir_data,
+                  constraint_loading_period=constraint_loading_period,
+                  load_function=load_function,compression=compression)
+
+    if 'load_data_winds' in mode:
+        load_winds(filenames=filenames,
+                  savedir=top_savedir_data,
+                  constraint_loading_period=constraint_loading_period,
+                  load_function=load_function,compression=compression)
+
+    if 'load_data_precipitation' in mode:
+        load_precipitation(filenames=filenames,
+                  savedir=top_savedir_data,
+                  constraint_loading_period=constraint_loading_period,
+                  load_function=load_function,compression=compression)
+
+    if 'load_data_hydrometeors' in mode:
+        load_hydrometeors(filenames=filenames,
+                  savedir=top_savedir_data,
+                  constraint_loading_period=constraint_loading_period,
+                  load_function=load_function,compression=compression)
 
     if 'load_processes' in mode:
-        
         load_processes(filenames=filenames,
-                       top_savedir_data=top_savedir_data,
+                       savedir=top_savedir_data,
                        constraint_loading_period=constraint_loading_period,
-                       load_function=load_function)
+                       load_function=load_function,compression=compression)
         
     if 'load_processes_detailed' in mode:
         
         load_processes_detailed(filenames=filenames,
-                       top_savedir_data=top_savedir_data,
+                       savedir=top_savedir_data,
                        constraint_loading_period=constraint_loading_period,
-                       load_function=load_function,
-                       compression=True)
+                       load_function=load_function,compression=compression)
         
     if 'load_processes_all' in mode:
         
         load_processes_all(filenames=filenames,
-                       top_savedir_data=top_savedir_data,
+                       savedir=top_savedir_data,
                        constraint_loading_period=constraint_loading_period,
-                       load_function=load_function,
-                       compression=True)
+                       load_function=load_function,compression=compression)
 
     if 'detection' in mode:
         features=run_feature_detection(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
@@ -134,11 +163,13 @@ def tracking_analysis(filenames,
                              parameters_segmentation_TWC=parameters_segmentation_TWC)
         
         run_segmentation_w(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
+                           compression=True,
                            constraint_tracking_period=constraint_tracking_period,
                            parameters_segmentation_w=parameters_segmentation_w)
         
         run_segmentation_w_TWC(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
                                constraint_tracking_period=constraint_tracking_period,
+                               compression=True,
                                parameters_segmentation_w=parameters_segmentation_w,
                                parameters_segmentation_TWC=parameters_segmentation_TWC)
     if 'linking' in mode:
@@ -162,58 +193,84 @@ def tracking_analysis(filenames,
         
     if ('plot_mask_w' in mode):
         plot_mask_w(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                    cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
     if ('plot_mask_w_TWC' in mode):
         plot_mask_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                        cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                        cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_w_3D' in mode):
         plot_mask_w_3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                       cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                       cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_TWC_3D' in mode):
         plot_mask_TWC_3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                         cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                         cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_w_TWC_3D' in mode):
         plot_mask_w_TWC_3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                           cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                           cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_w_2D3D' in mode):
         plot_mask_w_2D3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                         cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                         cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_TWC_2D3D' in mode):
         plot_mask_TWC_2D3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                           cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                           cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_w_TWC_2D3D' in mode):
         plot_mask_w_TWC_2D3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                             cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                             cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('plot_mask_processes_TWC' not in mode) and ('interpolation_processes_TWC' in mode)):
         interpolation_processes_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                    cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('plot_mask_processes_w_TWC'  not in mode) and ('interpolation_processes_w_TWC' in mode)):
         interpolation_processes_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                    cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('plot_mask_processes_TWC' in mode) and ('interpolation_processes_TWC' not in mode)):
         plot_mask_processes_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('plot_mask_processes_w_TWC' in mode) and ('interpolation_processes_w_TWC' not in mode)):
         plot_mask_processes_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                  cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('plot_mask_processes_TWC' in mode) and ('interpolation_processes_TWC' in mode)):
         interpolation_plot_processes_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                  cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('plot_mask_processes_w_TWC' in mode) and ('plot_mask_processes_w_TWC' in mode)):
         interpolation_plot_processes_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                  cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+    if (('plot_mask_hydrometeors_TWC' not in mode) and ('interpolation_hydrometeors_TWC' in mode)):
+        interpolation_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+    if (('plot_mask_hydrometeors_w_TWC'  not in mode) and ('interpolation_hydrometeors_w_TWC' in mode)):
+        interpolation_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+#     if (('plot_mask_hydrometeors_TWC' in mode) and ('interpolation_hydrometeors_TWC' not in mode)):
+#         plot_mask_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+#                                 cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+    # if (('plot_mask_hydrometeors_w_TWC' in mode) and ('interpolation_hydrometeors_w_TWC' not in mode)):
+    #     plot_mask_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+    #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+    # if (('plot_mask_hydrometeors_TWC' in mode) and ('interpolation_hydrometeors_TWC' in mode)):
+    #     interpolation_plot_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+    #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+    # if (('plot_mask_hydrometeors_w_TWC' in mode) and ('plot_mask_hydrometeors_w_TWC' in mode)):
+    #     interpolation_plot_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+    #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+
 
     if 'plot_lifetime' in mode:
         plot_lifetime(savedir=top_savedir_tracking,plotdir=top_plotdir)
@@ -232,222 +289,81 @@ def tracking_analysis(filenames,
 
     if (('interpolation_mass_TWC' in mode) and ('plot_mask_mass_TWC' not in mode)):
             interpolation_mass_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                  cell_selection=None,constraint_tracking_period=constraint_tracking_period)
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
             
     if (('plot_mask_mass_TWC' in mode) and ('interpolation_mass_TWC' not in mode)):
             plot_mask_mass_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                           cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                           cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
             
     if (('plot_mask_mass_TWC' in mode) and ('interpolation_mass_TWC' in mode)):
                 interpolation_plot_mask_mass_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                             cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                             cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if (('interpolation_mass_w_TWC' in mode) and ('plot_mask_mass_w_TWC' not in mode)):
             interpolation_mass_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                  cell_selection=None,constraint_tracking_period=constraint_tracking_period)
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
             
     if (('plot_mask_mass_w_TWC' in mode) and ('interpolation_mass_w_TWC' not in mode)):
             plot_mask_mass_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                           cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                           cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
             
     if (('plot_mask_mass_w_TWC' in mode) and ('interpolation_mass_w_TWC' in mode)):
                 interpolation_plot_mask_mass_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
-                                             cell_selection=None,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+                                             cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
+    # if (('interpolation_precipitation_TWC' in mode)):
+    #         interpolation_precipitation_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+    #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
 
+    # if (('interpolation_precipitation_w' in mode)):
+    #         interpolation_precipitation_w(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+    #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
 
-    # if 'tracking' in mode:
+    # if (('interpolation_precipitation_w_TWC' in mode)):
+    #         interpolation_precipitation_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+    #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
+
+    if (('interpolation_precipitation_TWC' in mode)):
+            interpolation_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,masking='TWC')
+
+    if (('interpolation_precipitation_w' in mode)):
+            interpolation_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,masking='w')
+
+    if (('interpolation_precipitation_w_TWC' in mode)):
+            interpolation_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,masking='w_TWC')
+
+    if ('plot_mask_precipitation_TWC' in mode):
+        plot_mask_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+                                cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period,masking='TWC')
+
+    if ('plot_mask_precipitation_w' in mode):
+        plot_mask_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+                                cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period,masking='w')
+
+    if ('plot_mask_precipitation_w_TWC' in mode):
+        plot_mask_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+                                cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period,masking='w_TWC')
+    if 'slices_processes_lumped' in mode:
+        slices_processes_lumped(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
+    if 'slices_processes_all' in mode:
+        slices_processes_all(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
         
-    #     logging.info('start tracking')
+    if 'slices_hydrometeors_mass' in mode:
+        slices_hydrometeors_mass(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
 
-    #     logging.debug('start loading data for tracking')
-
-    #     loaddir=os.path.join(top_savedir_data)
-    #     savedir=os.path.join(top_savedir_tracking)
-    #     os.makedirs(savedir,exist_ok=True)
-
-    #     W_max=iris.load_cube(os.path.join(loaddir,'Data_w_max.nc')).extract(constraint_tracking_period)  
-    #     W_mid_max=iris.load_cube(os.path.join(loaddir,'Data_w_mid_max.nc')).extract(constraint_tracking_period)  
-
+    if 'slices_hydrometeors_number' in mode:
+        slices_hydrometeors_number(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
         
-    #     logging.debug('data loaded for tracking')
-
-    #     logging.info('start tracking based on midlevel maximum vertical velocity:')
-    #     Track,Features=maketrack(W_mid_max,return_intermediate=True,**parameters_tracking)
-        
-    #     Track.to_hdf(os.path.join(savedir,'Track.h5'),'table')
-    #     Features.to_hdf(os.path.join(savedir,'Features.h5'),'table')
-
-    #     logging.info('tracking based on midlevel maximum vertical velocity finished and saved')
-        
-    #     logging.info('start tracking based on column maximum vertical velocity:')
-
-    #     Track_w_max,Features_w_max=maketrack(W_max,return_intermediate=True,**parameters_tracking)
-    
-    #     Track_w_max.to_hdf(os.path.join(savedir,'Track_w_max.h5'),'table')
-    #     Features_w_max.to_hdf(os.path.join(savedir,'Features_w_max.h5'),'table')
-        
-    #     logging.info('tracking based on column maximum vertical velocity finished and saved')
-
-    #     logging.info('tracks calculated and saved')
-
-    #     logging.info('tracks calculated and saved')
-
-            
-    # if 'segmentation' in mode:
-        
-    #     dxy,dt=get_spacings(W_mid_max)
-                
-    #     logging.info('start watershedding')
-    #     # Set up loading and saving directories:
-    #     loaddir=os.path.join(top_savedir_data)
-    #     savedir=os.path.join(top_savedir_tracking)
-    #     os.makedirs(savedir,exist_ok=True)
-        
-    #     # Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
-    #     zlib=False
-    #     # Set to compression level
-    #     complevel=4
-    #     packing={'dtype': np.int32, 'scale_factor':1, 'add_offset':1}
-    #      # Read Trajectories:
-    #     Track=pd.read_hdf(os.path.join(savedir,'Track.h5'),'table')
-
-    #     # perform 3D segmentation based on total condenate
-    #     logging.info('start watershedding TWC')
-    #     TWC=iris.load_cube(os.path.join(loaddir,'Data_WC.nc'),'TWC').extract(constraint_tracking_period)        
-    #     Mask_TWC,Track_TWC=segmentation_3D(Track,TWC,dxy=dxy,**parameters_segmentation_TWC)
-    #     iris.save([Mask_TWC],os.path.join(savedir,'Mask_Segmentation_TWC.nc'),zlib=zlib,complevel=complevel,packing=packing)                
-    #     Track_TWC.to_hdf(os.path.join(savedir,'Track_TWC.h5'),'table')
-    #     logging.debug('segmentation TWC performed and saved')
-    #     del(TWC,Mask_TWC,Track_TWC)
-        
-    #     #perform 3D segmentation based on updraft velocity
-    #     logging.info('start watershedding w')
-    #     W=iris.load_cube(os.path.join(loaddir,'Data_w.nc')).extract(constraint_tracking_period)             
-    #     Mask_w,Track_w=segmentation_3D(Track,W,dxy=dxy,**parameters_segmentation_w)
-    #     iris.save([Mask_w],os.path.join(savedir,'Mask_Segmentation_w.nc'),zlib=zlib,complevel=complevel,packing=packing)
-    #     Track_w.to_hdf(os.path.join(savedir,'Track_w.h5'),'table')
-    #     logging.debug('segmentation w performed and saved')
-    #     del(W,Mask_w,Track_w)
-        
-    #     # perform 3D segmentation based on updraft velocity and TWC
-    #     logging.info('start watershedding w with TWC masking')
-    #     W=iris.load_cube(os.path.join(loaddir,'Data_w.nc')).extract(constraint_tracking_period)
-    #     TWC=iris.load_cube(os.path.join(loaddir,'Data_WC.nc'),'TWC').extract(constraint_tracking_period)        
-    #     # Set field to zero for TWC below threshold
-    #     if (W.shape==TWC.shape):
-    #         W_TWC=W*(TWC.core_data()>parameters_segmentation_TWC['threshold'])
-    #     # Workaround for WRF, where W is on a staggered grid...
-    #     elif (W.shape[1]==(TWC.shape[1]+1)):
-    #         W_TWC=W[:,:-1]*(TWC.core_data()>parameters_segmentation_TWC['threshold'])
-    #     Mask_w_TWC,Track_w_TWC=segmentation_3D(Track,W_TWC,dxy=dxy,**parameters_segmentation_w)
-    #     iris.save([Mask_w_TWC],os.path.join(savedir,'Mask_Segmentation_w_TWC.nc'),zlib=zlib,complevel=complevel)
-    #     Track_w_TWC.to_hdf(os.path.join(savedir,'Track_w_TWC.h5'),'table')
-    #     logging.debug('segmentation w performed and saved')
-    #     del(W,TWC,W_TWC,Mask_w_TWC,Track_w_TWC)
-
-
-    #     # perform 2D segmentation based maximum midlevel updraft velocity (used for tracking)
-    #     logging.debug('start watershedding w_mid_max')
-    #     W_mid_max=iris.load_cube(os.path.join(loaddir,'Data_w_mid_max.nc')).extract(constraint_tracking_period)         
-    #     Mask_w_mid_max,Track_w_mid_max=segmentation_2D(Track,W_mid_max,dxy=dxy,**parameters_segmentation_w_2D)
-    #     iris.save([Mask_w_mid_max],os.path.join(savedir,'Mask_Segmentation_w_mid_max.nc'),zlib=zlib,complevel=complevel,packing=packing)                
-    #     Track_w_mid_max.to_hdf(os.path.join(savedir,'Track_w_mid_max.h5'),'table')
-    #     logging.debug('segmentation w_mid_max performed and saved')
-    #     del(W_mid_max,Mask_w_mid_max,Track_w_mid_max)
-
-
-#     if 'tracking_new' in mode:
-
-#         logging.info('start tracking')
-
-#         logging.debug('start loading data for tracking')
-
-#         loaddir=os.path.join(top_savedir_data)
-#         savedir=os.path.join(top_savedir_tracking)
-#         os.makedirs(savedir,exist_ok=True)
-
-#         W_max=iris.load_cube(os.path.join(loaddir,'Data_w_max.nc')).extract(constraint_tracking_period)  
-#         W_mid_max=iris.load_cube(os.path.join(loaddir,'Data_w_mid_max.nc')).extract(constraint_tracking_period)  
-
-#         dxy,dt=get_spacings(W_mid_max)
-#         logging.debug('data loaded for tracking')
-
-#         logging.info('start feature detection based on midlevel maximum vertical velocity:')
-#         parameters_features.pop('method_detection')
-#         Features=feature_detection_multithreshold(W_mid_max,dxy,**parameters_features)
-#         Features.to_hdf(os.path.join(savedir,'Features.h5'),'table')
-                        
-#         logging.info('start segmentation based in TWC')
-#         # Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
-#         zlib=True
-# #        zlib=False
-
-#         # Set to compression level
-#         complevel=4
-#         packing=None
-#         chunksizes=None
-#         packing={'dtype': np.int32, 'scale_factor':1, 'add_offset':1}
-#         #Read Trajectories:        
-#         #perform 3D segmentation based on total condenate
-#         TWC=iris.load_cube(os.path.join(loaddir,'Data_WC.nc'),'TWC').extract(constraint_tracking_period)       
-#         Mask_TWC,Features_TWC=segmentation_3D(Features,TWC,dxy,**parameters_segmentation_TWC)
-#         chunksizes=list(Mask_TWC.shape)
-#         chunksizes[0]=1
-#         logging.debug('segmentation TWC performed, start saving results to files')
-#         iris.save([Mask_TWC],os.path.join(savedir,'Mask_Segmentation_TWC.nc'),zlib=zlib,complevel=complevel,packing=packing,chunksizes=chunksizes)                
-#         Features_TWC.to_hdf(os.path.join(savedir,'Features_TWC.h5'),'table')
-#         logging.debug('segmentation TWC performed and saved')
-#         del(TWC,Mask_TWC)
-
-        
-#         # perform 3D segmentation based on total condenate
-#         W=iris.load_cube(os.path.join(loaddir,'Data_w.nc')).extract(constraint_tracking_period)
-#         Mask_w,Features_w=segmentation_3D(Features,W,dxy,**parameters_segmentation_w)
-#         logging.debug('segmentation w performed, start saving results to files')
-#         iris.save([Mask_w],os.path.join(savedir,'Mask_Segmentation_w.nc'),zlib=zlib,complevel=complevel,packing=packing,chunksizes=chunksizes)
-#         Features_w.to_hdf(os.path.join(savedir,'Features_w.h5'),'table')
-#         logging.debug('segmentation w performed and saved')
-#         del(W,Mask_w)
-
-#         # perform 3D segmentation based on updraft velocity and TWC
-#         logging.info('start watershedding w with TWC masking')
-#         W=iris.load_cube(os.path.join(loaddir,'Data_w.nc')).extract(constraint_tracking_period)
-#         TWC=iris.load_cube(os.path.join(loaddir,'Data_WC.nc'),'TWC').extract(constraint_tracking_period)        
-#         # Set field to zero for TWC below threshold
-#         if (W.shape==TWC.shape):
-#             W_TWC=W*(TWC.core_data()>parameters_segmentation_TWC['threshold'])
-#         # Workaround for WRF, where W is on a staggered grid...
-#         elif (W.shape[1]==(TWC.shape[1]+1)):
-#             W_TWC=W[:,:-1]*(TWC.core_data()>parameters_segmentation_TWC['threshold'])
-#         Mask_w_TWC,Features_w_TWC=segmentation_3D(Features,W_TWC,dxy,**parameters_segmentation_w)
-#         logging.debug('segmentation w_TWC performed, start saving results to files')
-#         iris.save([Mask_w_TWC],os.path.join(savedir,'Mask_Segmentation_w_TWC.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes)
-#         Features_w_TWC.to_hdf(os.path.join(savedir,'Features_w_TWC.h5'),'table')
-#         logging.debug('segmentation w_TWC performed and saved')
-#         del(W,TWC,W_TWC,Mask_w_TWC)
-
-#         parameters_tracking.pop('method_linking')
-#         Track=linking_trackpy(Features,W_mid_max,dt=dt,dxy=dxy,**parameters_linking)
-#         #save trajectories:
-#         Track.to_hdf(os.path.join(savedir,'Track.h5'),'table')
-# #        Paths.to_hdf(os.path.join(savedir,'Paths.h5'),'table')
-
-#         #merge information from segmentation into track and save
-#         Track_w=Features_w.merge(Track[['feature','cell','time_cell']],on='feature')
-#         Track_w.to_hdf(os.path.join(savedir,'Track_w.h5'),'table')
-#         #merge information from segmentation into track and save
-#         Track_TWC=Features_TWC.merge(Track[['feature','cell','time_cell']],on='feature')
-#         Track_TWC.to_hdf(os.path.join(savedir,'Track_TWC.h5'),'table')
-#         #merge information from segmentation into track and save
-#         Track_w_TWC=Features_w_TWC.merge(Track[['feature','cell','time_cell']],on='feature')
-#         Track_w_TWC.to_hdf(os.path.join(savedir,'Track_w_TWC.h5'),'table')
-
-#         logging.info('tracking performed and saved:')
-
-#         logging.info('feature detection,segmentation and tracking performed and saved')
-
-
+    if 'slices_aux' in mode:
+        slices_aux(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
 
 
 logging.debug('done')
@@ -462,10 +378,8 @@ def add_geopotential_height(cube):
             cube.add_aux_coord(geopotential_height_coord,data_dims=cube.coord_dims('model_level_number'))
     return cube
 
-def load_w(filenames,top_savedir_data,savedir,constraint_loading_period,load_function,compression=False):
+def load_w(filenames,savedir,constraint_loading_period,load_function,compression=True):
     logging.info('start loading data for tracking')
-
-    savedir=os.path.join(top_savedir_data)
     os.makedirs(os.path.join(savedir),exist_ok=True)
     
     logging.debug(' start loading w')
@@ -497,9 +411,61 @@ def load_w(filenames,top_savedir_data,savedir,constraint_loading_period,load_fun
     W_mid_max = W_mid.collapsed('model_level_number',MAX) # get Maximum column updraft in mid-level data
     iris.save([W_mid_max],os.path.join(savedir,'Data_w_mid_max.nc'))    
     logging.debug('w_mid_max loaded and saved')
+    
+def load_winds(filenames,savedir,constraint_loading_period,load_function,compression=True):
+    logging.info('start loading data for tracking')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+    
+    logging.debug(' start loading w')
+    W=load_function(filenames,'w_unstaggered').extract(constraint_loading_period)
+    logging.debug(' start loading u')
+    U=load_function(filenames,'u_unstaggered').extract(constraint_loading_period)
+    logging.debug(' start loading v')
+    V=load_function(filenames,'v_unstaggered').extract(constraint_loading_period)
 
-def load_WC(filenames,top_savedir_data,savedir,constraint_loading_period,load_function,compression=False):
+    if compression:
+         zlib=True
+         complevel=4
+         packing=None
+         chunksizes=list(W.shape)
+         chunksizes[0]=1
+    else:
+         zlib=False
+         complevel=None
+         packing=None
+         chunksizes=None
+
+    iris.save([U,V,W],os.path.join(savedir,'Data_winds.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    logging.debug('winds loaded and saved')
+
+def load_temperature(filenames,savedir,constraint_loading_period,load_function,compression=True):
+    logging.info('start loading data for tracking')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+    
+    logging.debug(' start loading theta')
+    Theta=load_function(filenames,'potential_temperature').extract(constraint_loading_period)
+    logging.debug(' start loading T')
+    T=load_function(filenames,'air_temperature').extract(constraint_loading_period)
+
+    if compression:
+         zlib=True
+         complevel=4
+         packing=None
+         chunksizes=list(Theta.shape)
+         chunksizes[0]=1
+    else:
+         zlib=False
+         complevel=None
+         packing=None
+         chunksizes=None
+
+    iris.save([Theta,T],os.path.join(savedir,'Data_temperature.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    logging.debug('Temperature loaded and saved')
+
+def load_WC(filenames,savedir,constraint_loading_period,load_function,compression=True):
     logging.debug(' start loading water content')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+
     IWC=load_function(filenames,'IWC').extract(constraint_loading_period)  
     LWC=load_function(filenames,'LWC').extract(constraint_loading_period)  
     TWC=IWC+LWC
@@ -516,29 +482,60 @@ def load_WC(filenames,top_savedir_data,savedir,constraint_loading_period,load_fu
          complevel=None
          packing=None
          chunksizes=None
+         
+    logging.debug('water content loaded start saving')
 
     iris.save([TWC,LWC,IWC],os.path.join(savedir,'Data_WC.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
     logging.debug('water content loaded and saved')
 
-def load_WP(filenames,top_savedir_data,savedir,constraint_loading_period,load_function,compression=False):
+def load_Airmass(filenames,savedir,constraint_loading_period,load_function,compression=True):
+    logging.debug(' start loading airmass')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
 
-    logging.debug(' start loading water path')
     Airmass=load_function(filenames,'airmass').extract(constraint_loading_period) 
     logging.debug('airmass loaded')
 
     Airmass_path=load_function(filenames,'airmass_path').extract(constraint_loading_period) 
     logging.debug('airmass path loaded')
 
+    rho=load_function(filenames,'air_density').extract(constraint_loading_period) 
+    logging.debug('density loaded')
+
+    
+    if compression:
+         zlib=True
+         complevel=4
+         packing=None
+         chunksizes=list(Airmass.shape)
+         chunksizes[0]=1
+    else:
+         zlib=False
+         complevel=None
+         packing=None
+         chunksizes=None
+         
+    logging.debug('water content loaded start saving')
+
+    iris.save([Airmass,Airmass_path,rho],os.path.join(savedir,'Data_Airmass.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    logging.debug('Airmass and density loaded and saved')
+
+
+
+def load_WP(filenames,savedir,constraint_loading_period,load_function,compression=True):
+    logging.debug(' start loading water path')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+
     IWP=load_function(filenames,'IWP').extract(constraint_loading_period) 
     logging.debug('ice water path loaded')
 
-    
     LWP=load_function(filenames,'LWP').extract(constraint_loading_period)      
     logging.debug('liquid water path loaded')
 
     TWP=IWP+LWP
     TWP.rename('TWP')
     
+    logging.debug('water paths loaded, start saving')
+
     if compression:
          zlib=True
          complevel=4
@@ -551,13 +548,71 @@ def load_WP(filenames,top_savedir_data,savedir,constraint_loading_period,load_fu
          packing=None
          chunksizes=None
 
-    iris.save([TWP,LWP,IWP,Airmass,Airmass_path],os.path.join(savedir,'Data_WP.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    iris.save([TWP,LWP,IWP],os.path.join(savedir,'Data_WP.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
     logging.debug('water path loaded and saved')
 
-def load_processes(filenames,top_savedir_data,savedir,constraint_loading_period,load_function,compression=True,processes_type='processes_lumped'):
-    logging.info('start loading data for tracking')
+def load_precipitation(filenames,savedir,constraint_loading_period,load_function,compression=True):
+    logging.debug(' start loading precipitation')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
 
-    savedir=os.path.join(top_savedir_data)
+    surface_precipitation=iris.cube.CubeList()
+    surface_precipitation.append(load_function(filenames,'surface_precipitation_average').extract(constraint_loading_period))
+    logging.debug('average from accumulated surface precipitation loaded')
+
+    surface_precipitation.append(load_function(filenames,'surface_precipitation_accumulated').extract(constraint_loading_period))
+    logging.debug('accumulated surface precipitation loaded')
+
+    # surface_precipitation.append(load_function(filenames,'surface_precipitation_instantaneous').extract(constraint_loading_period))
+    # logging.debug('instantaneous surface precipitation loaded')
+
+    logging.debug('precipitation loaded, start saving')
+
+    if compression:
+         zlib=True
+         complevel=4
+         packing=None
+         chunksizes=list(surface_precipitation[0].shape)
+         chunksizes[0]=1
+    else:
+         zlib=False
+         complevel=None
+         packing=None
+         chunksizes=None
+
+    iris.save(surface_precipitation,os.path.join(savedir,'Data_Precip.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    logging.debug('precipitation loaded and saved')
+
+
+
+def load_hydrometeors(filenames,savedir,constraint_loading_period,load_function,compression=True):
+    logging.debug(' start loading hydrometeors')
+    os.makedirs(os.path.join(savedir),exist_ok=True)
+
+    hydrometeors_mass=load_function(filenames,'hydrometeor_mass').extract(constraint_loading_period) 
+    logging.debug('hydrometeors_mass loaded')
+    
+    hydrometeors_number=load_function(filenames,'hydrometeor_number').extract(constraint_loading_period) 
+    logging.debug('hydrometeors_number loaded')
+
+    if compression:
+         zlib=True
+         complevel=4
+         packing=None
+         chunksizes=list(hydrometeors_mass[0].shape)
+         chunksizes[0]=1
+    else:
+         zlib=False
+         complevel=None
+         packing=None
+         chunksizes=None
+
+    iris.save(hydrometeors_mass,os.path.join(savedir,'Data_hydrometeor_mass.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    iris.save(hydrometeors_number,os.path.join(savedir,'Data_hydrometeor_number.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    logging.debug('hydrometeors loaded and saved')
+
+
+def load_processes(filenames,savedir,constraint_loading_period,load_function,compression=True,processes_type='processes_lumped'):
+    logging.info('start loading data for tracking')
     os.makedirs(os.path.join(savedir),exist_ok=True)
 
 
@@ -583,10 +638,8 @@ def load_processes(filenames,top_savedir_data,savedir,constraint_loading_period,
 
     logging.debug('data loaded and saved')
 
-def load_processes_detailed(filenames,top_savedir_data,savedir,constraint_loading_period,load_function,compression=True,processes_type='processes_lumped'):
+def load_processes_detailed(filenames,savedir,constraint_loading_period,load_function,compression=True,processes_type='processes_lumped'):
     logging.info('start loading data for tracking')
-
-    savedir=os.path.join(top_savedir_data)
     os.makedirs(os.path.join(savedir),exist_ok=True)
 
 
@@ -612,22 +665,18 @@ def load_processes_detailed(filenames,top_savedir_data,savedir,constraint_loadin
 
     logging.debug('data loaded and saved')
 
-def load_processes_all(filenames,top_savedir_data,savedir,constraint_loading_period,load_function,compression=True,processes_type='processes_lumped'):
+def load_processes_all(filenames,savedir,constraint_loading_period,load_function,compression=True):
     logging.info('start loading data for tracking')
-
-    savedir=os.path.join(top_savedir_data)
     os.makedirs(os.path.join(savedir),exist_ok=True)
 
-
-    logging.debug(' start process rates')
-
-    processes_lumped=load_function(filenames,'processes').extract(constraint_loading_period)    
+    logging.debug(' start loading process rates')
+    processes=load_function(filenames,'processes_all').extract(constraint_loading_period)    
     
     if compression:
          zlib=True
          complevel=4
          packing=None
-         chunksizes=list(processes_lumped[0].shape)
+         chunksizes=list(processes[0].shape)
          chunksizes[0]=1
     else:
          zlib=False
@@ -635,9 +684,9 @@ def load_processes_all(filenames,top_savedir_data,savedir,constraint_loading_per
          packing=None
          chunksizes=None
                  
-    iris.save(processes_lumped,os.path.join(savedir,'Data_Processes_all.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
+    iris.save(processes,os.path.join(savedir,'Data_Processes_all.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
     logging.debug('loaded and saved processes')
-    del(processes_lumped)
+    del(processes)
 
     logging.debug('data loaded and saved')
 
@@ -889,8 +938,8 @@ def plot_lifetime(top_savedir_tracking=None,top_plotdir=None):
     logging.info('lifetimes ncell plotted')
 
     make_animation(input_dir=plot_dir_cells,
-                   output=os.path.join(plot_dir,'Animation_Lifetime_cells'),
-                   delay=200,make_gif=False)
+                    output=os.path.join(plot_dir,'Animation_Lifetime_cells'),
+                    delay=200,make_gif=False)
 
 def calculate_profiles_w(savedir_tracking=None,savedir_data=None,plotdir=None):
     track=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
@@ -945,13 +994,21 @@ def profiles_cdnc(savedir_tracking=None,savedir_data=None,filenames=None,load_fu
 
     track=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
     mask_w=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_w.nc'),'segmentation_mask')
+    logging.debug('start loading NCLOUD')
 
 #    QCLOUD=load_function(filenames,'QCLOUD')
-    logging.debug('CDNC loaded')
-
-    CDNC=load_function(filenames,'NCLOUD')*load_function(filenames,'air_density')
-    CDNC=add_geopotential_height(CDNC)
+    NCLOUD=load_function(filenames,'NCLOUD')
     
+    logging.debug('start loading air_density')
+    rho=load_function(filenames,'air_density')
+    
+    logging.debug(str(NCLOUD))
+    logging.debug(str(rho))
+    CDNC=NCLOUD*rho
+    CDNC.rename('cloud_droplet_number_concentration')
+    CDNC=add_geopotential_height(CDNC)
+    logging.debug(str(CDNC))
+
     if (CDNC.coord('model_level_number').shape[0] == mask_w.coord('model_level_number').shape[0]):
         mask_w_unstaggered=mask_w
     elif (CDNC.coord('model_level_number').shape[0] == mask_w.coord('model_level_number').shape[0]-1):
@@ -1043,7 +1100,7 @@ def interpolation_mass_TWC(savedir_tracking=None,savedir_data=None,plotdir=None,
             coord.var_name=coord.name()
 
     # load airmass (used to calculate total values from mixing ratios) and fix coordinate names:
-    airmass=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'airmass').extract(constraint_tracking_period) 
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
     for coord in airmass.coords():
         coord.var_name=coord.name()
     logging.debug('airmass loaded from file')
@@ -1095,9 +1152,9 @@ def interpolation_mass_TWC(savedir_tracking=None,savedir_data=None,plotdir=None,
                                                                                             z_coord='model_level_number',
                                                                                             height_levels=height_levels)
 
-        iris.save(mass_cell_sum,os.path.join(savedir_cell,'Mass_profile_TWC'+str(int(cell))+'.nc'))
-        iris.save(mass_cell_integrated,os.path.join(savedir_cell,'Mass_integrated_TWC'+str(int(cell))+'.nc'))
-        track_mass_integrated.to_hdf(os.path.join(savedir_cell,'track_mass_integrated_TWC'+str(int(cell))+'.h5'),'table')
+        iris.save(mass_cell_sum,os.path.join(savedir_cell,'Mass_profile_TWC.nc'),zlib=True,complevel=4)
+        iris.save(mass_cell_integrated,os.path.join(savedir_cell,'Mass_integrated_TWC.nc'),zlib=True,complevel=4)
+        track_mass_integrated.to_hdf(os.path.join(savedir_cell,'track_mass_integrated_TWC.h5'),'table')
         logging.debug( 'mass calculated and saved to '+ savedir_cell)
 
 def plot_mask_mass_TWC(cell=None,savedir_tracking=None,savedir_data=None,plotdir=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
@@ -1212,7 +1269,7 @@ def interpolation_mass_w_TWC(savedir_tracking=None,savedir_data=None,plotdir=Non
             coord.var_name=coord.name()
 
     # load airmass (used to calculate total values from mixing ratios) and fix coordinate names:
-    airmass=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'airmass').extract(constraint_tracking_period) 
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
     for coord in airmass.coords():
         coord.var_name=coord.name()
     logging.debug('airmass loaded from file')
@@ -1264,8 +1321,8 @@ def interpolation_mass_w_TWC(savedir_tracking=None,savedir_data=None,plotdir=Non
                                                                                             z_coord='model_level_number',
                                                                                             height_levels=height_levels)
 
-        iris.save(mass_cell_sum,os.path.join(savedir_cell,'Mass_profile_w_TWC'+str(int(cell))+'.nc'))
-        iris.save(mass_cell_integrated,os.path.join(savedir_cell,'Mass_integrated_w_TWC'+str(int(cell))+'.nc'))
+        iris.save(mass_cell_sum,os.path.join(savedir_cell,'Mass_profile_w_TWC.nc'),zlib=True,complevel=4)
+        iris.save(mass_cell_integrated,os.path.join(savedir_cell,'Mass_integrated_w_TWC.nc'),zlib=True,complevel=4)
         track_mass_integrated.to_hdf(os.path.join(savedir_cell,'track_mass_integrated_w_TWC'+str(int(cell))+'.h5'),'table')
         logging.debug( 'mass calculated and saved to '+ savedir_cell)
 
@@ -1781,7 +1838,7 @@ def interpolation_processes_w_TWC(savedir_tracking=None,savedir_data=None,cell_s
     
     
     # load airmass (used to calculate total values from mixing ratios)
-    airmass=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'airmass').extract(constraint_tracking_period) 
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
     for coord in airmass.coords():
         coord.var_name=coord.name()
     logging.debug('airmass loaded from file')
@@ -1801,6 +1858,7 @@ def interpolation_processes_w_TWC(savedir_tracking=None,savedir_data=None,cell_s
     if cell_selection is None:
         cell_selection=tracks['cell'].dropna().unique()
 
+    logging.debug(f'cell_selection: {cell_selection}')
 
     # loop over individual cells for analysis
     for cell in cell_selection:                        
@@ -1816,9 +1874,9 @@ def interpolation_processes_w_TWC(savedir_tracking=None,savedir_data=None,cell_s
                                                                                                                              z_coord='model_level_number',
                                                                                                                              height_levels=height_levels)
         
-        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_w_TWC_'+str(int(cell))+'.nc'))
-        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_w_TWC_'+str(int(cell))+'.nc'))
-        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_w_TWC_'+str(int(cell))+'.h5'),'table')
+        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_w_TWC.nc'),zlib=True,complevel=4)
+        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_w_TWC.nc'),zlib=True,complevel=4)
+        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_w_TWC.h5'),'table')
         
         logging.debug( 'processes calculated and saved to '+ savedir_cell)
 
@@ -1849,7 +1907,7 @@ def interpolation_processes_TWC(savedir_tracking=None,savedir_data=None,cell_sel
     
     
     # load airmass (used to calculate total values from mixing ratios)
-    airmass=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'airmass').extract(constraint_tracking_period) 
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
     for coord in airmass.coords():
         coord.var_name=coord.name()
     logging.debug('airmass loaded from file')
@@ -1875,6 +1933,8 @@ def interpolation_processes_TWC(savedir_tracking=None,savedir_data=None,cell_sel
     if cell_selection is None:
         cell_selection=tracks['cell'].dropna().unique()
 
+    logging.debug(f'cell_selection: {cell_selection}')
+
 
     # loop over individual cells for analysis
     for cell in cell_selection:                        
@@ -1889,9 +1949,9 @@ def interpolation_processes_TWC(savedir_tracking=None,savedir_data=None,cell_sel
                                                                                                                              z_coord='model_level_number',
                                                                                                                              height_levels=height_levels)
         
-        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_TWC_'+str(int(cell))+'.nc'))
-        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_TWC_'+str(int(cell))+'.nc'))
-        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_TWC_'+str(int(cell))+'.h5'),'table')
+        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_TWC.nc'),zlib=True,complevel=4)
+        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_TWC.nc'),zlib=True,complevel=4)
+        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_TWC.h5'),'table')
         
         logging.debug( 'processes calculated and saved to '+ savedir_cell)
 
@@ -1914,6 +1974,9 @@ def plot_mask_processes_TWC(savedir_tracking=None,savedir_data=None,plotdir=None
     
     if cell_selection is None:
         cell_selection=np.unique(track_time['cell'])
+        
+    logging.debug(f'cell_selection: {cell_selection}')
+
     # loop over individual cells for analysis
     for cell in cell_selection:                        
         savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
@@ -1961,6 +2024,9 @@ def plot_mask_processes_w_TWC(savedir_tracking=None,savedir_data=None,plotdir=No
     
     if cell_selection is None:
         cell_selection=np.unique(track_time['cell'])
+        
+    logging.debug(f'cell_selection: {cell_selection}')
+
     # loop over individual cells for analysis
     for cell in cell_selection:                        
         savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
@@ -2034,7 +2100,7 @@ def interpolation_plot_processes_w_TWC(savedir_tracking=None,savedir_data=None,p
     
     
     # load airmass (used to calculate total values from mixing ratios)
-    airmass=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'airmass').extract(constraint_tracking_period) 
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
     for coord in airmass.coords():
         coord.var_name=coord.name()
     logging.debug('airmass loaded from file')
@@ -2053,6 +2119,8 @@ def interpolation_plot_processes_w_TWC(savedir_tracking=None,savedir_data=None,p
 #            
     if cell_selection is None:
         cell_selection=track_time['cell'].dropna().unique()
+        
+    logging.debug(f'cell_selection: {cell_selection}')
 
     # loop over individual cells for analysis
     for cell in cell_selection:                        
@@ -2068,9 +2136,9 @@ def interpolation_plot_processes_w_TWC(savedir_tracking=None,savedir_data=None,p
                                                                                                                              z_coord='model_level_number',
                                                                                                                              height_levels=height_levels)
         
-        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_w_TWC_'+str(int(cell))+'.nc'))
-        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_w_TWC_'+str(int(cell))+'.nc'))
-        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_w_TWC_'+str(int(cell))+'.h5'),'table')
+        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_w_TWC.nc'),zlib=True,complevel=4)
+        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_w_TWC.nc'),zlib=True,complevel=4)
+        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_w_TWC.h5'),'table')
         
         logging.debug( 'processes calculated and saved to '+ savedir_cell)
 
@@ -2145,7 +2213,7 @@ def interpolation_plot_processes_TWC(savedir_tracking=None,savedir_data=None,plo
     
     
     # load airmass (used to calculate total values from mixing ratios)
-    airmass=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'airmass').extract(constraint_tracking_period) 
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
     for coord in airmass.coords():
         coord.var_name=coord.name()
     logging.debug('airmass loaded from file')
@@ -2165,6 +2233,8 @@ def interpolation_plot_processes_TWC(savedir_tracking=None,savedir_data=None,plo
     if cell_selection is None:
         cell_selection=track_time['cell'].dropna().unique()
 
+    logging.debug(f'cell_selection: {cell_selection}')
+        
     # loop over individual cells for analysis
     for cell in cell_selection:                        
         logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
@@ -2179,9 +2249,9 @@ def interpolation_plot_processes_TWC(savedir_tracking=None,savedir_data=None,plo
                                                                                                                              z_coord='model_level_number',
                                                                                                                              height_levels=height_levels)
         
-        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_TWC_'+str(int(cell))+'.nc'))
-        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated_TWC_'+str(int(cell))+'.nc'))
-        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_TWC_'+str(int(cell))+'.h5'),'table')
+        iris.save(processes_lumped_cell_sum,os.path.join(savedir_cell,'Processes_lumped_profile_TWC.nc'),zlib=True,complevel=4)
+        iris.save(processes_lumped_cell_integrated,os.path.join(savedir_cell,'Processes_lumped_integrated.nc'),zlib=True,complevel=4)
+        track_processes_lumped_integrated.to_hdf(os.path.join(savedir_cell,'track_processes_lumped_integrated_TWC.h5'),'table')
         
         logging.debug( 'processes calculated and saved to '+ savedir_cell)
 
@@ -2214,3 +2284,382 @@ def interpolation_plot_processes_TWC(savedir_tracking=None,savedir_data=None,plo
         make_animation(input_dir=os.path.join(plotdir,'Masking_w_TWC_static_processes','Masking_w_TWC_static_processes_'+str(int(cell))),
                        output=os.path.join(plotdir,'Animations_Masking_w_TWC_static_processes','Masking_w_TWC_static_processes_'+str(int(cell))),
                        delay=200,make_gif=False)
+
+def interpolation_hydrometeors_TWC(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+    mask=iris.load_cube(os.path.join(savedir_tracking,'Mask_Segmentation_TWC.nc'),'segmentation_mask')
+
+    hydrometeors_file=os.path.join(savedir_data,'Data_hydrometeor_mass.nc')
+    if os.path.exists(hydrometeors_file):       
+        logging.debug('start loading hydrometers form preprocessed file:')
+        hydrometeors=iris.load(hydrometeors_file).extract(constraint_tracking_period)        
+#            else:#        
+#                logging.debug(' start process rates from data files')
+#                processes_lumped=load_function(filenames,'processes_lumped').extract(constraint_tracking_period)                 
+
+    for cube in hydrometeors:
+        for coord in cube.coords():
+            coord.var_name=coord.name()
+            coord.coord_system=None
+
+    logging.debug('loaded hydrometeors')
+
+    logging.debug('start loading auxillary variables')
+    
+    
+    # load airmass (used to calculate total values from mixing ratios)
+    airmass=iris.load_cube(os.path.join(savedir_data,'Data_Airmass.nc'),'airmass').extract(constraint_tracking_period) 
+    for coord in airmass.coords():
+        coord.var_name=coord.name()
+    logging.debug('airmass loaded from file')
+
+
+
+    height_levels=np.arange(0,20001,1000.)
+                    
+    # Sum up process rates for individual cells
+    hydrometeors_sum=iris.cube.CubeList()
+    
+    for cube in hydrometeors:
+        cube_sum=cube*airmass
+        cube_sum.rename(cube.name())
+        cube_sum=add_geopotential_height(cube_sum)
+        hydrometeors_sum.append(cube_sum)
+#            
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+
+    logging.debug(f'cell_selection: {cell_selection}')
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+        hydrometeors_cell_sum, hydrometeors_cell_integrated,track_hydrometeors_integrated=extract_cell_cubes_subset(cubelist_in=hydrometeors_sum,
+                                                                                                                             mask=mask,
+                                                                                                                             track=tracks,
+                                                                                                                             cell=cell,
+                                                                                                                             z_coord='model_level_number',
+                                                                                                                             height_levels=height_levels)
+        
+        iris.save(hydrometeors_cell_sum,os.path.join(savedir_cell,'Hydrometeors_profile_TWC.nc'),zlib=True,complevel=4)
+        iris.save(hydrometeors_cell_integrated,os.path.join(savedir_cell,'Hydrometeors_integrated_TWC.nc'),zlib=True,complevel=4)
+        track_hydrometeors_integrated.to_hdf(os.path.join(savedir_cell,'track_hydrometeros_integrated_TWC.h5'),'table')
+        
+        logging.debug( 'hydrometeors calculated and saved to '+ savedir_cell)
+
+
+
+
+
+def interpolation_precipitation(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None,masking='w'):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+    mask=iris.load_cube(os.path.join(savedir_tracking,f'Mask_Segmentation_{masking}.nc'),'segmentation_mask')
+
+    precipitation=iris.load(os.path.join(savedir_data,'Data_Precip.nc')).extract(constraint_tracking_period)        
+
+    logging.debug('loaded precipitation')
+    
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+
+    logging.debug(f'cell_selection: {cell_selection}')
+
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug(f'Start calculating Data for cell {int(cell)}')
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+#
+        precipitation_sum,track_precipitation=extract_cell_cubes_subset_2D(cubelist_in=precipitation,
+                                                         mask=mask,
+                                                         track=tracks,
+                                                         cell=cell,
+                                                         z_coord='model_level_number')
+        
+        iris.save(precipitation_sum,os.path.join(savedir_cell,f'Precipitation_{masking}.nc'))
+
+        track_precipitation.to_hdf(os.path.join(savedir_cell,f'track_precipitation_{masking}.h5'),'table')
+        
+        logging.debug(f'precipitation calculated and saved to {savedir_cell}')
+
+def plot_mask_precipitation(savedir_tracking=None,savedir_data=None,plotdir=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None,masking='w'):
+    from html_animate import make_animation
+    logging.debug('Start plotting tracks and masks for individual cells')
+    features=pd.read_hdf(os.path.join(savedir_tracking,'Features.h5'),'table')
+    track=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+    W_mid_max=iris.load_cube(os.path.join(savedir_data,'Data_w_mid_max.nc')).extract(constraint_tracking_period)    
+    TWP=iris.load_cube(os.path.join(savedir_data,'Data_WP.nc'),'TWP').extract(constraint_tracking_period)  
+    mask=iris.load_cube(os.path.join(savedir_tracking,f'Mask_Segmentation_{masking}.nc'),'segmentation_mask')
+    cmap_TWP,levels_TWP,bounds_TWP,norm_TWP=color_TWP()
+    cmap_w,levels_w,bounds_w,norm_w=color_w()
+
+    name=f'Masking_{masking}_static_precip'
+    logging.debug('data loaded from savefile')    
+    if plotting_period:
+            track_time=track.loc[(track['time']>plotting_period[0]) & (track['time']<plotting_period[1])]
+    
+    if cell_selection is None:
+        cell_selection=np.unique(track_time['cell'])
+        
+    logging.debug(f'cell_selection: {cell_selection}')
+    
+    # loop over individual cells for analysis
+    for cell in cell_selection:
+        name_cell=f'{name}_{int(cell)}'
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        precip=['surface_precipitation_instantaneous']
+        track_precip=pd.read_hdf(os.path.join(savedir_cell,f'track_processes_lumped_integrated_{masking}_{int(cell)}.h5'),'table')
+        plot_mask_cell_track_static_timeseries(cell=cell,
+                                           track=track_precip, 
+                                           cog=None,
+                                           features=features,
+                                           mask_total=mask,
+                                           field_contour=W_mid_max, 
+                                           label_field_contour='midlevel max w (m/s)',
+                                           cmap_field_contour=cmap_w,
+                                           vmin_field_contour=0,vmax_field_contour=15,levels_field_contour=levels_w,
+                                           field_filled=TWP, 
+                                           label_field_filled='TWP (kg/m^2)',
+                                           cmap_field_filled=cmap_TWP,
+                                           vmin_field_filled=0,vmax_field_filled=50,levels_field_filled=levels_TWP,
+                                           track_variable=track_precip,variable=precip,
+                                           variable_label=precip,variable_color='cornflowerblue',
+                                           variable_ylabel='surface precipitation (kg/s/m^2)',variable_legend=True,
+                                           width=10000,n_extend=2,
+                                           name=name_cell, 
+                                           plotdir=os.path.join(plotdir,name),
+                                           )
+        make_animation(input_dir=os.path.join(plotdir,name,name_cell),
+                       output=os.path.join(plotdir,f'Animations_{name}',name_cell),
+                       delay=200,make_gif=False)
+        
+        
+def slices_processes_lumped(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+
+    processes_file=os.path.join(savedir_data,'Data_Processes_lumped.nc')
+    if os.path.exists(processes_file):       
+        logging.debug('start loading processes form preprocessed file:')
+        processes=iris.load(processes_file).extract(constraint_tracking_period)
+        
+        for cube in processes:
+            cube=add_geopotential_height(cube)
+            
+    print(processes[0])
+    logging.debug('loaded processes')
+
+    height_levels=np.arange(0,20001,1000.)
+
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+
+    logging.debug(f'cell_selection: {cell_selection}')
+
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+        Processes_along,Processes_across=interpolate_alongacross_mean(processes,tracks,cell,dx=500,width=10000,z_coord='geopotential_height',height_level_borders=height_levels)
+        iris.save(Processes_along,os.path.join(savedir_cell,f'Processes_lumped_along.nc'),zlib=True,complevel=4)
+        iris.save(Processes_across,os.path.join(savedir_cell,f'Processes_lumped_across.nc'),zlib=True,complevel=4)
+        
+        
+        logging.debug( 'Processes along and across calculated and saved to '+ savedir_cell)
+
+def slices_processes_all(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+
+    processes_file=os.path.join(savedir_data,'Data_Processes_all.nc')
+    if os.path.exists(processes_file):       
+        logging.debug('start loading processes form preprocessed file:')
+        processes=iris.load(processes_file).extract(constraint_tracking_period)
+        
+        for cube in processes:
+            cube=add_geopotential_height(cube)
+            
+    print(processes[0])
+    logging.debug('loaded processes')
+
+    height_levels=np.arange(0,20001,1000.)
+
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+
+    logging.debug(f'cell_selection: {cell_selection}')
+
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+        Processes_along,Processes_across=interpolate_alongacross_mean(processes,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        iris.save(Processes_along,os.path.join(savedir_cell,f'Processes_all_along.nc'),zlib=True,complevel=4)
+        iris.save(Processes_across,os.path.join(savedir_cell,f'Processes_all_across.nc'),zlib=True,complevel=4)
+        
+        
+        logging.debug( 'Processes along and across calculated and saved to '+ savedir_cell)
+
+def slices_hydrometeors_mass(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+
+    hydrometeors_file=os.path.join(savedir_data,'Data_hydrometeor_mass.nc')
+    if os.path.exists(hydrometeors_file):       
+        logging.debug('start loading hydrometers form preprocessed file:')
+        hydrometeors=iris.load(hydrometeors_file).extract(constraint_tracking_period)
+        
+        for cube in hydrometeors:
+            cube=add_geopotential_height(cube)
+            
+    print(hydrometeors[0])
+
+    logging.debug('loaded hydrometeors')
+
+    height_levels=np.arange(0,20001,1000.)
+
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+        
+    logging.debug(f'cell_selection: {cell_selection}')
+
+
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+
+
+        Hydrometeors_mass_along,Hydrometeors_mass_across=interpolate_alongacross_mean(hydrometeors,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        iris.save(Hydrometeors_mass_along,os.path.join(savedir_cell,f'Hydrometeors_mass_along.nc'),zlib=True,complevel=4)
+        iris.save(Hydrometeors_mass_across,os.path.join(savedir_cell,f'Hydrometeors_mass_across.nc'),zlib=True,complevel=4)
+        
+        logging.debug( 'hydrometeors mass along and across calculated and saved to '+ savedir_cell)
+
+def slices_hydrometeors_number(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+
+    hydrometeors_file=os.path.join(savedir_data,'Data_hydrometeor_number.nc')
+    if os.path.exists(hydrometeors_file):       
+        logging.debug('start loading hydrometers form preprocessed file:')
+        hydrometeors=iris.load(hydrometeors_file).extract(constraint_tracking_period)        
+#            else:#        
+#                logging.debug(' start process rates from data files')
+#                processes_lumped=load_function(filenames,'processes_lumped').extract(constraint_tracking_period)                 
+
+        for cube in hydrometeors:
+            cube=add_geopotential_height(cube)
+
+    logging.debug('loaded hydrometeors')
+
+    height_levels=np.arange(0,20001,1000.)
+
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+
+    logging.debug(f'cell_selection: {cell_selection}')
+
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+        Hydrometeors_number_along,Hydrometeors_number_across=interpolate_alongacross_mean(hydrometeors,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        iris.save(Hydrometeors_number_along,os.path.join(savedir_cell,f'Hydrometeors_number_along.nc'),zlib=True,complevel=4)
+        iris.save(Hydrometeors_number_across,os.path.join(savedir_cell,f'Hydrometeors_number_across.nc'),zlib=True,complevel=4)
+        
+        logging.debug( 'hydrometeors number along and across calculated and saved to '+ savedir_cell)
+
+def slices_aux(savedir_tracking=None,savedir_data=None,cell_selection=None,constraint_tracking_period=None,plotting_period=None):
+    logging.debug('Start calculations for individual cells')
+        
+    logging.debug('loading tracks and Mask')
+
+    tracks=pd.read_hdf(os.path.join(savedir_tracking,'Track.h5'),'table')
+
+    WC_file=os.path.join(savedir_data,'Data_WC.nc')
+    if os.path.exists(WC_file):       
+        logging.debug('start loading water content form preprocessed file:')
+        WC=iris.load(WC_file).extract(constraint_tracking_period)
+        for cube in WC:
+            cube=add_geopotential_height(cube)
+
+        
+    # winds_file=os.path.join(savedir_data,'Data_winds.nc')
+    # if os.path.exists(winds_file):       
+    #     logging.debug('start loading winds form preprocessed file:')
+    #     winds=iris.load(winds_file).extract(constraint_tracking_period)
+        # for cube in winds:
+        #     cube=add_geopotential_height(cube)
+
+    temperature_file=os.path.join(savedir_data,'Data_temperature.nc')
+    if os.path.exists(temperature_file):       
+        logging.debug('start loading temperature form preprocessed file:')
+        temperature=iris.load(temperature_file).extract(constraint_tracking_period)
+        for cube in temperature:
+            cube=add_geopotential_height(cube)
+
+    airmass_file=os.path.join(savedir_data,'Data_Airmass.nc')
+    if os.path.exists(airmass_file):       
+        logging.debug('start loading airmass form preprocessed file:')
+        airmass=iris.load(airmass_file).extract(constraint_tracking_period)
+        for cube in airmass:
+            cube=add_geopotential_height(cube)
+
+    Aux=iris.cube.CubeList()
+    Aux.extend(WC)
+    # Aux.extend(winds)
+    Aux.extend(temperature)
+    Aux.extend(airmass.extract('air_density'))
+
+    logging.debug('loaded hydrometeors')
+
+    height_levels=np.arange(0,20001,1000.)
+
+    if cell_selection is None:
+        cell_selection=tracks['cell'].dropna().unique()
+
+    logging.debug(f'cell_selection: {cell_selection}')
+
+    # loop over individual cells for analysis
+    for cell in cell_selection:                        
+        logging.debug( 'Start calculating Data for cell '+ str(int(cell)))
+        savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
+        os.makedirs(savedir_cell,exist_ok=True)
+
+        Aux_along,Aux_across=interpolate_alongacross_mean(Aux,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        iris.save(Aux_along,os.path.join(savedir_cell,f'Aux_along.nc'),zlib=True,complevel=4)
+        iris.save(Aux_across,os.path.join(savedir_cell,f'Aux_across.nc'),zlib=True,complevel=4)
+        
+        logging.debug( 'hydrometeors number along and across calculated and saved to '+ savedir_cell)
