@@ -22,7 +22,6 @@ import pandas as pd
 import numpy as np
 
 from matplotlib import colors
-
 from multiprocessing.pool import ThreadPool
 import dask
 
@@ -172,6 +171,26 @@ def tracking_analysis(filenames,
                                compression=True,
                                parameters_segmentation_w=parameters_segmentation_w,
                                parameters_segmentation_TWC=parameters_segmentation_TWC)
+        
+    if 'segmentation_TWC' in mode:
+        run_segmentation_TWC(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
+                             compression=True,
+                             constraint_tracking_period=constraint_tracking_period,
+                             parameters_segmentation_TWC=parameters_segmentation_TWC)
+        
+    if 'segmentation_w' in mode:
+        run_segmentation_w(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
+                           compression=True,
+                           constraint_tracking_period=constraint_tracking_period,
+                           parameters_segmentation_w=parameters_segmentation_w)
+        
+    if 'segmentation_w_TWC' in mode:
+        run_segmentation_w_TWC(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
+                               constraint_tracking_period=constraint_tracking_period,
+                               compression=True,
+                               parameters_segmentation_w=parameters_segmentation_w,
+                               parameters_segmentation_TWC=parameters_segmentation_TWC)
+
     if 'linking' in mode:
         run_linking(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
                     constraint_tracking_period=constraint_tracking_period,
@@ -2349,7 +2368,7 @@ def interpolation_hydrometeors_TWC(savedir_tracking=None,savedir_data=None,cell_
         
         iris.save(hydrometeors_cell_sum,os.path.join(savedir_cell,'Hydrometeors_profile_TWC.nc'),zlib=True,complevel=4)
         iris.save(hydrometeors_cell_integrated,os.path.join(savedir_cell,'Hydrometeors_integrated_TWC.nc'),zlib=True,complevel=4)
-        track_hydrometeors_integrated.to_hdf(os.path.join(savedir_cell,'track_hydrometeros_integrated_TWC.h5'),'table')
+        track_hydrometeors_integrated.to_hdf(os.path.join(savedir_cell,'track_hydrometeors_integrated_TWC.h5'),'table')
         
         logging.debug( 'hydrometeors calculated and saved to '+ savedir_cell)
 
@@ -2460,7 +2479,6 @@ def slices_processes_lumped(savedir_tracking=None,savedir_data=None,cell_selecti
         for cube in processes:
             cube=add_geopotential_height(cube)
             
-    print(processes[0])
     logging.debug('loaded processes')
 
     height_levels=np.arange(0,20001,1000.)
@@ -2514,7 +2532,7 @@ def slices_processes_all(savedir_tracking=None,savedir_data=None,cell_selection=
         savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
         os.makedirs(savedir_cell,exist_ok=True)
 
-        Processes_along,Processes_across=interpolate_alongacross_mean(processes,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        Processes_along,Processes_across=interpolate_alongacross_mean(processes,tracks,cell,dx=500,width=10000,z_coord='geopotential_height',height_level_borders=height_levels)
         iris.save(Processes_along,os.path.join(savedir_cell,f'Processes_all_along.nc'),zlib=True,complevel=4)
         iris.save(Processes_across,os.path.join(savedir_cell,f'Processes_all_across.nc'),zlib=True,complevel=4)
         
@@ -2556,7 +2574,7 @@ def slices_hydrometeors_mass(savedir_tracking=None,savedir_data=None,cell_select
 
 
 
-        Hydrometeors_mass_along,Hydrometeors_mass_across=interpolate_alongacross_mean(hydrometeors,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        Hydrometeors_mass_along,Hydrometeors_mass_across=interpolate_alongacross_mean(hydrometeors,tracks,cell,dx=500,width=10000,z_coord='geopotential_height',height_level_borders=height_levels)
         iris.save(Hydrometeors_mass_along,os.path.join(savedir_cell,f'Hydrometeors_mass_along.nc'),zlib=True,complevel=4)
         iris.save(Hydrometeors_mass_across,os.path.join(savedir_cell,f'Hydrometeors_mass_across.nc'),zlib=True,complevel=4)
         
@@ -2595,7 +2613,7 @@ def slices_hydrometeors_number(savedir_tracking=None,savedir_data=None,cell_sele
         savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
         os.makedirs(savedir_cell,exist_ok=True)
 
-        Hydrometeors_number_along,Hydrometeors_number_across=interpolate_alongacross_mean(hydrometeors,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        Hydrometeors_number_along,Hydrometeors_number_across=interpolate_alongacross_mean(hydrometeors,tracks,cell,dx=500,width=10000,z_coord='geopotential_height',height_level_borders=height_levels)
         iris.save(Hydrometeors_number_along,os.path.join(savedir_cell,f'Hydrometeors_number_along.nc'),zlib=True,complevel=4)
         iris.save(Hydrometeors_number_across,os.path.join(savedir_cell,f'Hydrometeors_number_across.nc'),zlib=True,complevel=4)
         
@@ -2658,7 +2676,7 @@ def slices_aux(savedir_tracking=None,savedir_data=None,cell_selection=None,const
         savedir_cell=os.path.join(savedir_tracking,'cells',str(int(cell)))
         os.makedirs(savedir_cell,exist_ok=True)
 
-        Aux_along,Aux_across=interpolate_alongacross_mean(Aux,tracks,cell,dx=500,width=10,z_coord='geopotential_height',height_level_borders=height_levels)
+        Aux_along,Aux_across=interpolate_alongacross_mean(Aux,tracks,cell,dx=500,width=10000,z_coord='geopotential_height',height_level_borders=height_levels)
         iris.save(Aux_along,os.path.join(savedir_cell,f'Aux_along.nc'),zlib=True,complevel=4)
         iris.save(Aux_across,os.path.join(savedir_cell,f'Aux_across.nc'),zlib=True,complevel=4)
         

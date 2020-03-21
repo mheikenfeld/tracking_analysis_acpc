@@ -421,9 +421,6 @@ def interpolate_to_cubes(cubelist_in,grid_along,grid_across,z_coord='model_level
             if variable.coord('geopotential_height').ndim>1:
                 cube_along=my_interpolate_3D2D_altitude(variable,grid_along,coordinates_in=['model_level_number','projection_y_coordinate','projection_x_coordinate'],coordinates_out=['geopotential_height','x_dx'],method='linear')
                 cube_across=my_interpolate_3D2D_altitude(variable,grid_across,coordinates_in=['model_level_number','projection_y_coordinate','projection_x_coordinate'],coordinates_out=['geopotential_height','x_dx'],method='linear')
-            
-
-        
         else:
             raise ValueError('z_coord must be model_level_number or geopotential_height ')
         cubelist_out_along.append(cube_along)
@@ -474,9 +471,11 @@ def make_cubes_alongacross(x,y,alpha,cube_sample,dx=500,width=10000,height_level
         raise ValueError('z_coord must be model_level_number or geopotential_height ')
        
       
-
+       
+    #get number of coordinate points in each direction
+    n_dx=np.floor(width/dx)
     # create new x coordinate (new cube)
-    x_dx=dx*(np.arange(-1.*width,1.*width+1))
+    x_dx=dx*(np.arange(-1.*n_dx,1.*n_dx+1))
     x_dx_coord=iris.coords.DimCoord(x_dx,long_name='x_dx',var_name='x_dx',units='m')
         
     #create coordinates x and y for new cube:  
@@ -630,11 +629,10 @@ def make_cubes_alongacross_mean(x,y,alpha,cube_sample,dx=500,width=10000,height_
     height_levels=height_level_borders[0:-1]+0.5*np.diff(height_level_borders)
     geopotential_height_coord=iris.coords.DimCoord(height_levels,long_name='geopotential_height',var_name='geopotential_height',units='m')
        
-      
-
+    #get number of coordinate points in each direction
+    n_dx=np.floor(width/dx)
     # create new x coordinate (new cube)
-    #x_dx=dx*(np.arange(-1.*width,1.*width+1))
-    x_dx=np.arange(-1*width,1.*width+1)
+    x_dx=dx*(np.arange(-1.*n_dx,1.*n_dx+1))
     x_dx_coord=iris.coords.DimCoord(x_dx,long_name='x_dx',var_name='x_dx',units='m')
         
     #create coordinates x and y for new cube:  
