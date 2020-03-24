@@ -1,5 +1,3 @@
-import matplotlib as mpl
-mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 import logging
@@ -151,7 +149,7 @@ def tracking_analysis(filenames,
                        load_function=load_function,compression=compression)
 
     if 'detection' in mode:
-        features=run_feature_detection(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
+        run_feature_detection(loaddir=os.path.join(top_savedir_data),savedir=os.path.join(top_savedir_tracking),
                                        constraint_tracking_period=constraint_tracking_period,
                                        parameters_features=parameters_features)
     
@@ -269,10 +267,10 @@ def tracking_analysis(filenames,
         interpolation_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
                                     cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
-    if (('plot_mask_hydrometeors_w_TWC'  not in mode) and ('interpolation_hydrometeors_w_TWC' in mode)):
-        interpolation_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
-
+#    if (('plot_mask_hydrometeors_w_TWC'  not in mode) and ('interpolation_hydrometeors_w_TWC' in mode)):
+#        interpolation_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+#                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+#
 #     if (('plot_mask_hydrometeors_TWC' in mode) and ('interpolation_hydrometeors_TWC' not in mode)):
 #         plot_mask_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
 #                                 cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
@@ -288,8 +286,6 @@ def tracking_analysis(filenames,
     # if (('plot_mask_hydrometeors_w_TWC' in mode) and ('plot_mask_hydrometeors_w_TWC' in mode)):
     #     interpolation_plot_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
     #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
-
-
 
     if 'plot_lifetime' in mode:
         plot_lifetime(savedir=top_savedir_tracking,plotdir=top_plotdir)
@@ -357,7 +353,7 @@ def tracking_analysis(filenames,
     if ('plot_mask_precipitation_TWC' in mode):
         plot_mask_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                 cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period,masking='TWC')
-
+        
     if ('plot_mask_precipitation_w' in mode):
         plot_mask_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                 cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period,masking='w')
@@ -365,9 +361,11 @@ def tracking_analysis(filenames,
     if ('plot_mask_precipitation_w_TWC' in mode):
         plot_mask_precipitation(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                 cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period,masking='w_TWC')
+        
     if 'slices_processes_lumped' in mode:
         slices_processes_lumped(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
                                   cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
+        
     if 'slices_processes_all' in mode:
         slices_processes_all(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
                                   cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
@@ -375,7 +373,7 @@ def tracking_analysis(filenames,
     if 'slices_hydrometeors_mass' in mode:
         slices_hydrometeors_mass(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
                                   cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
-
+        
     if 'slices_hydrometeors_number' in mode:
         slices_hydrometeors_number(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
                                   cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
@@ -537,8 +535,6 @@ def load_Airmass(filenames,savedir,constraint_loading_period,load_function,compr
 
     iris.save([Airmass,Airmass_path,rho],os.path.join(savedir,'Data_Airmass.nc'),zlib=zlib,complevel=complevel,chunksizes=chunksizes,packing=packing)
     logging.debug('Airmass and density loaded and saved')
-
-
 
 def load_WP(filenames,savedir,constraint_loading_period,load_function,compression=True):
     logging.debug(' start loading water path')
@@ -782,10 +778,6 @@ def run_feature_detection(loaddir=None,savedir=None,
         features.to_hdf(os.path.join(savedir,'Features.h5'),'table')
     else:
         raise ValueError('method_detection unknown, only "threshold_multi" is implemented')
-                        
-    logging.info('start segmentation based in TWC')
-    # Set to True for compression (decreases size of saved files to mb's but saving process takes really long)
-    return features
 
 def run_segmentation_TWC(loaddir=None, savedir=None,
                          compression=True,
@@ -2516,7 +2508,6 @@ def slices_processes_all(savedir_tracking=None,savedir_data=None,cell_selection=
         for cube in processes:
             cube=add_geopotential_height(cube)
             
-    print(processes[0])
     logging.debug('loaded processes')
 
     height_levels=np.arange(0,20001,1000.)
