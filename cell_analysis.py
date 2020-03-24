@@ -4,7 +4,9 @@ import iris
 
 def extract_cell_cubes_subset(cubelist_in,mask,track,cell,width=10000,dx=500,
                               z_coord='model_level_number', height_levels=None):
-    
+    '''
+    function description
+    '''
     from iris.analysis import SUM
     from iris import Constraint
     from iris.cube import CubeList
@@ -81,6 +83,9 @@ def extract_cell_cubes_subset(cubelist_in,mask,track,cell,width=10000,dx=500,
     return cubelist_cell_sum_out, cubelist_cell_integrated_out,track_cell_integrated
 
 def extract_cell_cubes_subset_2D(cubelist_in,mask,track,cell,width=10000,dx=500,z_coord='model_level_number'):
+    '''
+    function description
+    '''
     import iris
     from iris import Constraint
     from iris.cube import CubeList
@@ -163,6 +168,9 @@ def extract_cell_cubes_subset_2D(cubelist_in,mask,track,cell,width=10000,dx=500,
 
 
 def collapse_profile_mask(variable_cube,height_levels_borders,mask_cell,coordinate='geopotential_height',method=None,fillnan=None):
+    '''
+    function description
+    '''
     from iris.coords import DimCoord
     from iris.cube import Cube
     from iris import Constraint
@@ -189,7 +197,10 @@ def collapse_profile_mask(variable_cube,height_levels_borders,mask_cell,coordina
         variable_cube_out.data[i_height]=variable_cube_out_i
     return variable_cube_out
     
-def sum_profile_mask(cubelist_in,height_levels_borders,mask_cell):    
+def sum_profile_mask(cubelist_in,height_levels_borders,mask_cell):
+    '''
+    function description
+    '''
     from iris.cube import CubeList
     from iris.analysis import SUM
     from dask.array.ma import masked_invalid
@@ -208,8 +219,10 @@ def sum_profile_mask(cubelist_in,height_levels_borders,mask_cell):
         cubelist_out.append(cube_cell_profile)
     return cubelist_out
 
-
-def sum_mask_surface(cubelist_in,mask_cell_surface):    
+def sum_mask_surface(cubelist_in,mask_cell_surface):
+    '''
+    function description
+    '''
     from iris.cube import CubeList
     from iris.analysis import SUM
     from tobac import mask_cube
@@ -224,8 +237,6 @@ def sum_mask_surface(cubelist_in,mask_cell_surface):
             variable_sum.remove_coord(coord)
         cubelist_out.append(variable_sum)
     return cubelist_out
-
-
 
 def calculate_alpha(x,y,i):
     """
@@ -262,7 +273,9 @@ def calculate_alpha(x,y,i):
     return alpha
 
 def calculate_alpha_all(x,y):
-    #calculate angle alpha between cell direction and x-axis for all points in the the track
+    '''
+    calculate angle alpha between cell direction and x-axis for all points in the the track
+    '''
     from scipy.ndimage.filters import gaussian_filter1d
     alpha=np.nan*np.ones(np.array(x.shape))
     for i in range(len(x)):
@@ -272,7 +285,7 @@ def calculate_alpha_all(x,y):
     return alpha
 
 def calculate_xy_alphafrom_time(x,y,Time,time_i):
-    """
+    '''
     Calculate the position and the angle of the track (from x axis) at a specific timesteo based on the four adjacent timesteps. 
     The first two and the last two point are treated special with a calculation based on two points
     
@@ -292,7 +305,7 @@ def calculate_xy_alphafrom_time(x,y,Time,time_i):
     -------
     alpha: float
     angle betweeen track and x axis (range: -pi tp pi)
-    """
+    '''
     
     i=1
     # Special case: first point in track:
@@ -311,7 +324,9 @@ def calculate_xy_alphafrom_time(x,y,Time,time_i):
     return x,y,alpha
 
 def interpolate_alongacross(Processes,Track,cell,dx=500,width=10000,z_coord='model_level_number',height_levels=np.arange(2,20000,2000)):
-
+    '''
+    function description
+    '''
     from iris import Constraint
     from iris.cube import CubeList
     Track_cell=Track[Track['cell']==cell]
@@ -346,6 +361,9 @@ def interpolate_alongacross(Processes,Track,cell,dx=500,width=10000,z_coord='mod
     return Processes_along,Processes_across
 
 def my_interpolate_3D2D_altitude(cube_in,cube_grid,coordinates_in=None,coordinates_out=None,method='linear'):
+    '''
+    function description
+    '''
     import numpy as np
     from scipy.interpolate import RegularGridInterpolator,interp1d
 
@@ -379,6 +397,9 @@ def my_interpolate_3D2D_altitude(cube_in,cube_grid,coordinates_in=None,coordinat
     return(cube_out)
 
 def my_interpolate_3D2D(cube_in,cube_grid,coordinates,method='linear'):
+    '''
+    function description
+    '''
     import numpy as np
     from scipy.interpolate import RegularGridInterpolator
    
@@ -404,6 +425,9 @@ def my_interpolate_3D2D(cube_in,cube_grid,coordinates,method='linear'):
     return(cube_out)
 
 def interpolate_to_cubes(cubelist_in,grid_along,grid_across,z_coord='model_level_number'):
+    '''
+    function description
+    '''
     from iris.cube import CubeList
     cubelist_out_along= CubeList()
     cubelist_out_across= CubeList()
@@ -469,9 +493,7 @@ def make_cubes_alongacross(x,y,alpha,cube_sample,dx=500,width=10000,height_level
         geopotential_height_coord=iris.coords.DimCoord(height_levels,long_name='geopotential_height',var_name='geopotential_height',units='m')
     else:
         raise ValueError('z_coord must be model_level_number or geopotential_height ')
-       
-      
-       
+
     #get number of coordinate points in each direction
     n_dx=np.floor(width/dx)
     # create new x coordinate (new cube)
@@ -518,7 +540,9 @@ def make_cubes_alongacross(x,y,alpha,cube_sample,dx=500,width=10000,height_level
 
 
 def interpolate_alongacross_mean(Processes,Track,cell,dx=500,width=10000,z_coord='model_level_number',height_level_borders=np.arange(0,20000,2000)):
-
+    '''
+    function description
+    '''
     from iris import Constraint
     from iris.cube import CubeList
     Track_cell=Track[Track['cell']==cell]
@@ -526,14 +550,10 @@ def interpolate_alongacross_mean(Processes,Track,cell,dx=500,width=10000,z_coord
     x=Track_cell['projection_x_coordinate'].values
     y=Track_cell['projection_y_coordinate'].values
     alpha=calculate_alpha_all(x,y)
-
+    
     cubelist_Processes_along=CubeList()
     cubelist_Processes_across=CubeList()
-
-               
-
-
-
+    
     for i,time_i in enumerate(time):
         logging.debug(time_i)
         
@@ -572,6 +592,9 @@ def interpolate_alongacross_mean(Processes,Track,cell,dx=500,width=10000,z_coord
     return Processes_along,Processes_across
 
 def interpolate_to_cubes_mean(cubelist_in,grid_along,grid_across,height_level_borders=None):
+    '''
+    function description
+    '''
     from iris.cube import CubeList
     cubelist_out_along= CubeList()
     cubelist_out_across= CubeList()
@@ -590,7 +613,7 @@ def interpolate_to_cubes_mean(cubelist_in,grid_along,grid_across,height_level_bo
         
         del cube_along
         del cube_across
-    return cubelist_out_along,cubelist_out_across
+    return cubelist_out_along, cubelist_out_across
 
 
 
@@ -660,6 +683,9 @@ def make_cubes_alongacross_mean(x,y,alpha,cube_sample,dx=500,width=10000,height_
     return grid_along,grid_across
 
 def my_interpolate_3D2D_mean(cube_in,cube_grid,coordinates,method='linear',height_level_borders=None):
+    '''
+    function description
+    '''
     import numpy as np
     from scipy.interpolate import RegularGridInterpolator
 
@@ -690,5 +716,4 @@ def my_interpolate_3D2D_mean(cube_in,cube_grid,coordinates,method='linear',heigh
     cube_out.data=target_data_final
     cube_out.rename(cube_in.name())
     cube_out.units=cube_in.units
-
-    return(cube_out)
+    return cube_out
