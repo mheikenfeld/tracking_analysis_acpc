@@ -22,6 +22,7 @@ def tracking_analysis(filenames,
                       parallel=False,
                       loading_period=None,
                       tracking_period=None,
+                      height_levels=None
                       parameters_features=None,
                       parameters_linking=None,
                       parameters_tracking=None,
@@ -228,14 +229,7 @@ def tracking_analysis(filenames,
         plot_mask_w_TWC_2D3D(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                              cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
-    if (('plot_mask_processes_TWC' not in mode) and ('interpolation_processes_TWC' in mode)):
-        interpolation_processes_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
-
-    if (('plot_mask_processes_w_TWC'  not in mode) and ('interpolation_processes_w_TWC' in mode)):
-        interpolation_processes_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
-
+#
     if (('plot_mask_processes_TWC' in mode) and ('interpolation_processes_TWC' not in mode)):
         plot_mask_processes_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                 cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
@@ -252,9 +246,6 @@ def tracking_analysis(filenames,
         interpolation_plot_processes_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                   cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
-    if (('plot_mask_hydrometeors_TWC' not in mode) and ('interpolation_hydrometeors_TWC' in mode)):
-        interpolation_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
 #    if (('plot_mask_hydrometeors_w_TWC'  not in mode) and ('interpolation_hydrometeors_w_TWC' in mode)):
 #        interpolation_hydrometeors_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
@@ -297,7 +288,7 @@ def tracking_analysis(filenames,
                            cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
             
     if (('plot_mask_mass_TWC' in mode) and ('interpolation_mass_TWC' in mode)):
-                interpolation_plot_mask_mass_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+        interpolation_plot_mask_mass_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                              cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
             
@@ -306,7 +297,7 @@ def tracking_analysis(filenames,
                            cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
             
     if (('plot_mask_mass_w_TWC' in mode) and ('interpolation_mass_w_TWC' in mode)):
-                interpolation_plot_mask_mass_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
+        interpolation_plot_mask_mass_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,plotdir=top_plotdir,
                                              cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
 
     if ('plot_mask_precipitation_TWC' in mode):
@@ -331,9 +322,22 @@ def tracking_analysis(filenames,
     # if (('interpolation_precipitation_w_TWC' in mode)):
     #         interpolation_precipitation_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
     #                               cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
+    
+    if (('plot_mask_processes_TWC' not in mode) and ('interpolation_processes_TWC' in mode)):
+        interpolation_processes_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+        
+    if (('plot_mask_hydrometeors_TWC' not in mode) and ('interpolation_hydrometeors_TWC' in mode)):
+        interpolation_hydrometeors_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
+    if (('plot_mask_processes_w_TWC'  not in mode) and ('interpolation_processes_w_TWC' in mode)):
+        interpolation_processes_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                    cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period,plotting_period=plotting_period)
+
     if (('interpolation_mass_TWC' in mode) and ('plot_mask_mass_TWC' not in mode)):
-            interpolation_mass_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
-                                  cell_selection=cell_selection,constraint_tracking_period=constraint_tracking_period)
+            interpolation_mass(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
+                                  cell_selection=cell_selection,constraint_time=constraint_tracking_period,height_levels=height_levels, mask='TWC')
 
     if (('interpolation_mass_w_TWC' in mode) and ('plot_mask_mass_w_TWC' not in mode)):
             interpolation_mass_w_TWC(savedir_tracking=top_savedir_tracking,savedir_data=top_savedir_data,
